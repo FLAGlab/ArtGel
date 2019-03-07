@@ -681,7 +681,7 @@ public class IntensityProcessor {
 		for(Band newBand:newBands) bands.add(newBand);
 	}
 
-	private void clusterAlleles(){
+	public void clusterAlleles(){
 		//STEP : Cluster bands looking for variant alleles
     	for (Band b:bands) b.setAlleleClusterId(-1);
         BandsClusteringAlgorithm bandsClustering = new HeuristicCliqueBandClusteringAlgorithm();
