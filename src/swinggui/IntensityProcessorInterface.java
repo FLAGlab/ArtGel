@@ -87,6 +87,7 @@ public class IntensityProcessorInterface extends JFrame {
 
 	public void clusterBands() {
 		processor.clusterBands();
+		processor.clusterAlleles();
 		List<Band> bands = processor.getBands();
 		imagePanel.paintBands(bands);
 		List<Well> wells = processor.getWells();
