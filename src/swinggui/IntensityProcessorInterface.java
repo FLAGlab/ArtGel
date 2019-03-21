@@ -35,6 +35,7 @@ import Geles.Band;
 public class IntensityProcessorInterface extends JFrame {
 
 	private WellIdsPanel wellIdsPanel;
+	private RulerPanel rulerPanel;
 	private ImagePanel imagePanel;
 	private ButtonsPanel buttonsPanel;
 	private IntensityProcessor processor;
@@ -46,6 +47,9 @@ public class IntensityProcessorInterface extends JFrame {
 		wellIdsPanel = new WellIdsPanel();
 		add(wellIdsPanel, BorderLayout.NORTH);
 		wellIdsPanel.setVisible(false);
+		rulerPanel = new RulerPanel();
+		add(rulerPanel, BorderLayout.EAST);
+		rulerPanel.setVisible(false);
 		imagePanel = new ImagePanel(this);
 		add (imagePanel, BorderLayout.CENTER);
 		buttonsPanel = new ButtonsPanel(this);
@@ -71,8 +75,10 @@ public class IntensityProcessorInterface extends JFrame {
 		imagePanel.paintBands(bands);
 		List<Well> wells = processor.getWells();
 		imagePanel.paintWells(wells);
-		wellIdsPanel.repaintWellIds(wells.size());
+		wellIdsPanel.repaintWellIds(wells,processor.getImage().getWidth());
 		wellIdsPanel.setVisible(true);
+		
+		
 		
 	}
 	public void save() {
@@ -117,7 +123,12 @@ public class IntensityProcessorInterface extends JFrame {
 		imagePanel.paintBands(bands);
 		List<Well> wells = processor.getWells();
 		imagePanel.paintWells(wells);
-		
+	}
+
+	public void setRulerValues(List<String> rulerValues) {
+		// TODO Auto-generated method stub
+		rulerPanel.repaintRuler(rulerValues, processor.getImage().getHeight());
+		rulerPanel.setVisible(true);
 	}
 
 	

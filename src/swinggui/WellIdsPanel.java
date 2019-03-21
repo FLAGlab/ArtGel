@@ -7,6 +7,8 @@ import java.util.List;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 
+import Geles.Well;
+
 public class WellIdsPanel extends JPanel {
 
 	private List<JTextField> wellIds = new ArrayList<>();
@@ -14,12 +16,16 @@ public class WellIdsPanel extends JPanel {
 		
 	}
 	
-	public void repaintWellIds (int number) {
+	public void repaintWellIds (List<Well> wells, int imageWidth) {
 		List<String> oldIds = getWellIds();
 		this.removeAll();
-		this.setLayout(new GridLayout(1, number));
-		for(int i=0;i<number;i++) {
+		int n = wells.size();
+		int textWidth = imageWidth/n;
+		System.out.println("Image width: "+imageWidth+" wells: "+n+" textWidth: "+textWidth);
+		this.setLayout(new GridLayout(1, n));
+		for(int i=0;i<n;i++) {
 			JTextField text = new JTextField();
+			text.setSize(textWidth, 30);
 			if(i<oldIds.size()) text.setText(oldIds.get(i));
 			add(text);
 		}
