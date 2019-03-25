@@ -144,16 +144,15 @@ public class IntensityProcessor {
     	createWellsBandClusters();
     	
     	// STEP 7: Identify missing bands from registered alleles
-    	//discoverMissingBands(0.8);
+    	discoverMissingBands(0.8);
     	
     	// STEP 8: Identify missing bands small size
-    	//int[] bandSize = typicalBandDimensions;
-    	//bandSize[0] = bandSize[0] / 1;
-    	//double signalThreshold = 0.7;
-    	//predictBandsSlidingWindow(bandSize, signalThreshold);
+    	
+    	double signalThreshold = 0.7;
+    	predictBandsSlidingWindow(signalThreshold);
     	
     	// STEP 7: Identify missing bands from registered alleles
-    	//discoverMissingBands(0.7);
+    	discoverMissingBands(0.7);
     	
     	// STEP 8: Identify missing bands small size
     	//bandSize = typicalBandDimensions;
@@ -165,7 +164,7 @@ public class IntensityProcessor {
     	//discoverMissingBands(0.6);
     	
     	// STEP 6: Identify wells performing vertical clustering of bands
-    	// createWellsBandClusters();
+    	createWellsBandClusters();
     	
     	// STEP 9: Cluster alleles and samples
     	clusterAlleles();
@@ -296,7 +295,7 @@ public class IntensityProcessor {
 						rowCounter++;
 					}
 					if(matrix[i][j]==1 && matrix[i][j] != matrix[i][j+1]){
-						if(rowCounter > 1) {
+						if(rowCounter >= 5) {
 							//System.out.println("New width: " + rowCounter+" at row: "+i+" col: "+j);
 							rowBandWidths.add(rowCounter);
 						}
@@ -355,6 +354,7 @@ public class IntensityProcessor {
 		System.out.println("Width statistics. Median: "+medianW+" Mean: "+meanW+" Variance: "+varianceW);
 		
 		typicalBandWidth = medianW;
+		if (meanW > medianW) typicalBandWidth += (meanW-medianW)/2;
 		Collections.sort(colBandHeights);
 		int medianH = colBandHeights.get(colBandHeights.size()/2);
 		double sumH = 0;
@@ -370,7 +370,11 @@ public class IntensityProcessor {
 		System.out.println("Height statistics. Median: "+medianH+" Mean: "+meanH+" Variance: "+varianceH);
 		typicalBandHeight = medianH;
 		//minimum band width
-		if(imageColumns>500 && typicalBandWidth<20) { 
+		if(imageColumns>1500 && typicalBandWidth<50) { 
+			typicalBandWidth=50;
+		} else if(imageColumns>1000 && typicalBandWidth<40) { 
+			typicalBandWidth=40;
+		} else if(imageColumns>500 && typicalBandWidth<20) { 
 			typicalBandWidth=20;
 		} else if (typicalBandWidth < 10 ){
 			typicalBandWidth=10;
@@ -461,45 +465,37 @@ public class IntensityProcessor {
 	}
 	
 	public void createWellsKmeans() {
-		//int lowKvalue = (int)Math.round(imageColumns/(2*bWidth));
-		int lowKvalue = 1;
-		System.out.println("lowK: " + lowKvalue);
 		int highKvalue = (int)Math.round(imageColumns/typicalBandWidth);
 		System.out.println("highK: " + highKvalue);
 		
-		double[] var = new double[highKvalue-lowKvalue];
-
-		for(int i=lowKvalue; i<highKvalue; i++){
-			kMeansWellPrediction kmeansK = new kMeansWellPrediction(imageRows, imageColumns, bands, i);
-			kmeansK.clusterWells();
-			var[i-lowKvalue]=kmeansK.getVariance();
-
-			//System.out.println("K: " + i + "\t logSE: " + Math.log10(var[i-lowKvalue]));
-		}
-		
-		double[] deltaVar = new double[var.length];
-		deltaVar[0]=0;
-		for(int i=1; i<var.length; i++){
-			deltaVar[i]=var[i-1]-var[i];
-		}
+		double[] var = new double[highKvalue+1];
 		double[] logVar = new double[var.length];
-		for(int i=0; i<var.length; i++){
-			logVar[i]=Math.log10(var[i]);
+		for(int k=1; k<=highKvalue; k++){
+			kMeansWellPrediction kmeansK = new kMeansWellPrediction(imageRows, imageColumns, bands, k);
+			kmeansK.clusterWells();
+			var[k]=kmeansK.getVariance();
+			logVar[k]=Math.log10(var[k]);
 		}
+		var[0] = var[1];
+		logVar[0] = logVar[1];
+		//Calculate deltas
+		double[] deltaVar = new double[var.length];
 		double[] deltaLogVar = new double[var.length];
+		deltaVar[0]=0;
 		deltaLogVar[0]=0;
-		for(int i=1; i<logVar.length; i++){
-			deltaLogVar[i]=Math.abs(logVar[i-1]-logVar[i]);
-			System.out.println("dLogVar: " +deltaLogVar[i]);
+		for(int k=1; k<var.length; k++){
+			deltaVar[k]=var[k-1]-var[k];
+			deltaLogVar[k]=Math.abs(logVar[k-1]-logVar[k]);
+			System.out.println("k: "+k+" stdev "+Math.sqrt(var[k])+" logvar: "+logVar[k]+" delta logVar: " +deltaLogVar[k]);
 		}
-		deltaLogVar[1]=0;
 		double maxdLogSE=deltaLogVar[0];
 		int selectedK=0;
-		for(int i=0; i<deltaLogVar.length; i++){
-			double dse = deltaLogVar[i];
+		for(int k=1; k<deltaLogVar.length; k++){
+			if(Math.sqrt(var[k])>2*typicalBandWidth) continue;
+			double dse = deltaLogVar[k];
 			if(dse>maxdLogSE){
 				maxdLogSE = dse;
-				selectedK=i+lowKvalue;
+				selectedK=k;
 			}
 		}
 		System.out.println("\t seletedK = " + selectedK);
@@ -521,7 +517,11 @@ public class IntensityProcessor {
 		
 		List<BandCluster> clusters = km.getClusters();
 		int co=0;
-		for(BandCluster cluster:clusters){
+		for(BandCluster cluster:clusters) {
+			if(cluster.getBands().size()==0) {
+				System.err.println("Empty cluster");
+				continue;
+			}
 			co++;
 			System.out.println("Cluster#: " + co);
 			int colFirst=imageColumns;

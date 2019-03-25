@@ -111,7 +111,7 @@ public class ImagePanel extends JPanel implements MouseListener {
 			int alleleCluster = band.getAlleleClusterId();
 			if(alleleCluster>=0) {
 				g2D.setColor(bandColors.get(alleleCluster%10));
-				g2D.drawString(""+alleleCluster, band.getCentroid()[1], band.getCentroid()[0]);
+				g2D.drawString(""+alleleCluster, band.getMiddleColumn(), band.getMiddleRow());
 			} else {
 				g2D.setColor(Color.RED);
 			}

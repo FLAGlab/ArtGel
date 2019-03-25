@@ -19,25 +19,23 @@
  *******************************************************************************/
 package Geles;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 
 // Band cluster used in k means clustering of wells
 
 public class BandCluster{
 	 private List<Band> bands = new ArrayList<Band>();
 	 private int centroid;
-	 private boolean done = false;
-	 private double sumVariance;
 	 
 	 public BandCluster(int centroid){
-		 this.centroid=centroid;
+		 this.centroid = centroid;
 	 }
 
-	 public int calculateCentroid(){
+	 public int calculateCentroidFromBands(){
 		 double sum=0;
 		 for(Band b:bands){
-			 int[] bandC = b.getCentroid();
-			 sum += bandC[1];
+			 sum += b.getMiddleColumn();
 		 }
 		 int newCentroid = (int)Math.round(sum/bands.size());
 		 return newCentroid;
@@ -55,29 +53,23 @@ public class BandCluster{
 		return bands;
 	 }
 
-	 public boolean isStable(){
-		return done;
-	 }
-
-	 public void setEnded(boolean end) {
-		this.done = end;
-	 }
-
 	 public void clearCluster() {
 	  	bands.clear();
 	 }
 	 
-	 public void calculateVariance(){
-		 double sum =0;
-		 for(Band b:bands){
-			 double var = Math.pow((centroid-b.getCentroid()[1]),2);
-			 sum += var;
-		 }
-		 
-		 this.sumVariance=sum;
+	 public void assignBand (Band b) {
+		 bands.add(b);
 	 }
 	 
-	 public double getSumVariance(){
-		 return sumVariance;
+	 public double calculateVarianceFromBands(){
+		 if(bands.size()<=1) return 0;
+		 double sum = 0;
+		 double sum2 = 0;
+		 for(Band b:bands){
+			 double d = b.getMiddleColumn();
+			 sum += d;
+			 sum2 += d*d;
+		 }
+		 return (sum2-sum*sum/bands.size())/(bands.size()-1);
 	 }
 }

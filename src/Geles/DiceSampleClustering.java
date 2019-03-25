@@ -59,13 +59,14 @@ public class DiceSampleClustering implements SampleClusteringAlgorithm {
 			}
 			
 	        //Print
-	        System.out.println("BinaryMatrix: ");
+	        /*
+			System.out.println("BinaryMatrix: ");
 	        for(int i=0;i<binaryMatrix.length;i++){
 	        	for(int j=0; j<binaryMatrix[0].length;j++){
 	        		System.out.print(binaryMatrix[i][j] +" ");
 	        	}
 	        	System.out.println();
-	        }
+	        }*/
 	        
 	        double [][] diceMatrix = calculateDiceDistance(binaryMatrix);
 	        
@@ -109,14 +110,14 @@ public class DiceSampleClustering implements SampleClusteringAlgorithm {
 				dice[i][j]=dice[j][i]=value;
 			}
 		}
-		System.out.println("Dice matrix: ");
+		/*System.out.println("Dice matrix: ");
 		
 		for(int i=0; i<dice.length; i++){
 			for(int j=0; j<dice[i].length; j++){
 				System.out.print(dice[i][j]+" ");
 			}
 			System.out.println();
-		}
+		}*/
 			
 		return dice;
 	}

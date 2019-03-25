@@ -31,7 +31,7 @@ public class kMeansWellPrediction {
 	List<BandCluster> clusters= new ArrayList<BandCluster>();
 	
 	/**
-	 * Contructor
+	 * Constructor
 	 * @param imageRows
 	 * @param imageColumns
 	 * @param bands
@@ -44,7 +44,7 @@ public class kMeansWellPrediction {
 	}
 	
 	public void clusterWells(){
-		// random k centers prototype clusters
+		// Initial centroids evenly distributed
 		for(int i=0; i<k; i++){
 			int c = (int)Math.round( (i+0.5) * imageColumns/k);
 			BandCluster bandCluster = new BandCluster(c);
@@ -53,13 +53,14 @@ public class kMeansWellPrediction {
 
 		//iterate clustering
 		int counter=0;
-		while(!done(clusters)){
+		boolean stable = false;
+		while(counter < 100 && !stable){
 			clearClusters(clusters);
 			assignBands(clusters);
-			calculateCentroids(clusters);
+			stable = calculateCentroids(clusters);
 			counter++;
 		}
-		System.out.println("\t No. Iterations: " + counter);
+		//System.out.println("\t No. Iterations: " + counter);
 		
 		this.sumVariance=calculateVariance(clusters);
 		 
@@ -68,52 +69,45 @@ public class kMeansWellPrediction {
 	private double calculateVariance(List<BandCluster> clusters) {
 		double sum=0;
 		for(BandCluster cluster:clusters){
-			cluster.calculateVariance();
-			sum += cluster.getSumVariance();
+			sum += cluster.calculateVarianceFromBands();
 		}
 		return sum;
 	}
 
-	private void calculateCentroids(List<BandCluster> clusters) {
+	private boolean calculateCentroids(List<BandCluster> clusters) {
+		boolean stable = true;
 		for(BandCluster cluster:clusters){
-			if(cluster.getBands().isEmpty()){
-				cluster.setEnded(true);
-			}
+			if(cluster.getBands().size()==0) continue;
 			int oldCentroid = cluster.getCentroid();
-			int newCentroid = cluster.calculateCentroid();
+			int newCentroid = cluster.calculateCentroidFromBands();
 
 			cluster.setCentroid(newCentroid);
 			
-			if(oldCentroid == newCentroid){
-				cluster.setEnded(true);
-			}
-			else{
-				cluster.setEnded(false);
+			if(oldCentroid != newCentroid){
+				stable = false;
 			}
 		}
-		
+		return stable;
 	}
 
 	private void assignBands(List<BandCluster> clusters) {
 		
 		//calculate distance to each center and assign to closest cluster
 
-				for(Band band:bands){
-					double distance;
-					double dist = 100000;
-					int closest=0;
-					band.calculateCentroid();
-					int[] c = band.getCentroid();
-					for(int i=0; i<k; i++){
-						distance = Math.sqrt(Math.pow((c[1]-clusters.get(i).getCentroid()), 2));
-						if(distance<dist){
-							closest=i;
-							dist=distance;
-						}		
-					}
-					clusters.get(closest).getBands().add(band);
-
-				}
+		for(Band band:bands){
+			double distance;
+			double dist = 100000;
+			int closest=0;
+			int column = band.getMiddleColumn();
+			for(int i=0; i<k; i++){
+				distance = Math.abs(column-clusters.get(i).getCentroid());
+				if(distance<dist){
+					closest=i;
+					dist=distance;
+				}		
+			}
+			clusters.get(closest).assignBand(band);
+		}
 	}
 
 	private void clearClusters(List<BandCluster> clusters) {
@@ -121,15 +115,6 @@ public class kMeansWellPrediction {
 			cluster.clearCluster();
 		}
 		
-	}
-
-	private boolean done(List<BandCluster> clusters) {
-		for(BandCluster cluster:clusters){
-			if(cluster.isStable() == false){
-				return false;
-			}
-		}
-		return true;
 	}
 	
 	public List<BandCluster> getClusters(){

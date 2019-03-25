@@ -32,7 +32,6 @@ public class Band {
 	private int startColumn;
 	private int endColumn;
 	private int wellID;
-	private int[] centroid = new int[2];
 	
 	private int alleleClusterId=-1;
 	
@@ -145,13 +144,11 @@ public class Band {
         return euclideanDistances;
 	}
 	
-	public void calculateCentroid(){
-		// centroid: row, col
-		centroid[0] = startRow + (endRow-startRow)/2;
-		centroid[1] = startColumn + (endColumn-startColumn)/2;
+	public int getMiddleRow() {
+		return startRow + (endRow-startRow)/2;
 	}
 	
-	public int[] getCentroid(){
-		return centroid;
+	public int getMiddleColumn(){
+		return startColumn + (endColumn-startColumn)/2;
 	}
 }
