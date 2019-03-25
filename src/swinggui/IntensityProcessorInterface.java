@@ -94,6 +94,7 @@ public class IntensityProcessorInterface extends JFrame {
 		int answer = jfc.showSaveDialog(this);
 		if(answer != JFileChooser.APPROVE_OPTION) return;
 		try {
+			processor.clusterSamples();
 			processor.saveResults(jfc.getSelectedFile().getAbsolutePath());
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -125,7 +126,7 @@ public class IntensityProcessorInterface extends JFrame {
 	}
 
 	public void clusterBands() {
-		processor.createWellsBandClusters();
+		processor.createWells();
 		processor.clusterAlleles();
 		List<Band> bands = processor.getBands();
 		imagePanel.paintBands(bands);
