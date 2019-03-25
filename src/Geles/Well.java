@@ -33,6 +33,7 @@ public class Well {
 	private int wellHeight;
 	private int startCol;
 	private int wellWidth;
+	private String sampleId;
 	
 	private List<Band> bands = new ArrayList<>();
 
@@ -51,7 +52,7 @@ public class Well {
 		this.wellID=wellID;
 		wellHeight=height;
 		wellWidth=width;
-		
+		sampleId = ""+wellID;
 	}
 
 	/**
@@ -109,5 +110,16 @@ public class Well {
 
 	public void removeBand(Band selected) {
 		bands.remove(selected);
+	}
+
+	/**
+	 * @param sampleId the sampleId to set
+	 */
+	public void setSampleId(String sampleId) {
+		this.sampleId = sampleId;
+	}
+
+	public String getSampleId() {
+		return sampleId;
 	}
 }

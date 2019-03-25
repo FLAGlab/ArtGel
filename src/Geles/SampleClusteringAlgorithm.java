@@ -20,9 +20,7 @@
 package Geles;
 
 import java.io.IOException;
-import java.util.List;
 
-import ngsep.clustering.Dendrogram;
 /**
  * Sample Clustering Interface
  * @author Cindy Ulloa, Hector Ruiz, Jorge Duitama
@@ -31,11 +29,16 @@ import ngsep.clustering.Dendrogram;
 public interface SampleClusteringAlgorithm {
 	
 	/**
-	 * Method for clustering the samples (cluster each well)
-	 * @param wells The list of wells identified in the image
-	 * @return Dendogram A dendogram of the clustering
+	 * Method for clustering the samples based on the image analysis
+	 * @param processor Object with the image and the results of the analysis
+	 * @return double [][] samples distance matrix
 	 */
-	public Dendrogram clusterSamples(List<Well> wells);
+	public double [][] clusterSamples(IntensityProcessor processor);
 
-	public void saveDistanceMatrix(String outputFilePrefix) throws IOException;
+	/**
+	 * Saves algrithm specific information generated during the clustering process
+	 * @param outputFilePrefix Prefix for output files
+	 * @throws IOException If the files can not be created
+	 */
+	public void saveClusteringData(String outputFilePrefix) throws IOException;
 }

@@ -114,14 +114,11 @@ public class KMeansWellPrediction {
 	
 	public List<Well> createWells() {
 		List<Well> answer = new ArrayList<>();
-		int co=0;
 		for(KMeansVerticalBandCluster cluster:clusters) {
 			if(cluster.getBands().size()==0) {
-				System.err.println("Empty cluster");
+				//System.err.println("Empty cluster");
 				continue;
 			}
-			co++;
-			System.out.println("Cluster#: " + co);
 			int colFirst=imageColumns;
 			int colLast=0;
 			for(Band b:cluster.getBands()){
@@ -137,7 +134,7 @@ public class KMeansWellPrediction {
 			Well well = new Well(0,colFirst, imageRows, colLast-colFirst+1, answer.size());
 			int wellID = well.getWellID();
 			for(Band b:cluster.getBands()){
-				System.out.println("band#: " + b.getBandID());
+				//System.out.println("band#: " + b.getBandID());
 				b.setWellID(wellID);
 				well.addBand(b);
 			}

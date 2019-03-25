@@ -20,6 +20,8 @@
 package Geles;
 
 import ngsep.clustering.Dendrogram;
+import ngsep.clustering.DistanceMatrix;
+import ngsep.clustering.NeighborJoining;
 import ngsep.hmm.ConstantTransitionHMM;
 import ngsep.hmm.HMM;
 import ngsep.math.Distribution;
@@ -76,9 +78,9 @@ public class IntensityProcessor {
 	
 	private int numClusters;
 	
-	private SampleClusteringAlgorithm sampleClustering;
+	
 
-	private Dendrogram clusteringTree;
+	private double [][] samplesDistanceMatrix;
     private double Pstart_signal=0.05;
     private double Ptransition=0.05;
     
@@ -149,20 +151,14 @@ public class IntensityProcessor {
     	// STEP 5: Identify bands
     	//predictBands(1, 0.8); //0.8 threshold
     	
-    	//predictBands(2, 0.5);
+    	//predictBands(2, 0.95);
     	
-    	predictBands(3, typicalBandHeight*typicalBandWidth);
+    	predictBands(3, 0.5);
+    	
+    	if(bands.size()==0) throw new Exception ("No bands were found");
     	
     	// STEP 6: Identify wells performing vertical clustering of bands
     	createWells();
-    	
-    	// STEP 7: Identify missing bands from registered alleles
-    	//discoverMissingBands(0.7);
-    	
-    	// STEP 8: Identify missing bands small size
-    	
-    	//double signalThreshold = 0.7;
-    	//predictBandsSlidingWindow(signalThreshold);
     	
     	// STEP 7: Identify missing bands from registered alleles
     	//discoverMissingBands(0.7);
@@ -177,7 +173,7 @@ public class IntensityProcessor {
     	//discoverMissingBands(0.6);
     	
     	// STEP 6: Identify wells performing vertical clustering of bands
-    	createWells();
+    	//createWells();
     	
     	// STEP 9: Cluster alleles and samples
     	clusterAlleles();
@@ -426,36 +422,44 @@ public class IntensityProcessor {
 		List<PixelWithRealValue> pixels = new ArrayList<>();
 		double averageValue = 0;
 		int numValues = 0;
+		Distribution distLogFold = new Distribution(0, 2000, 100);
 		for(int i=0; i<imageRows-typicalBandHeight; i++){ //start loop along all signal matrix
 			for(int j=0; j<imageColumns-typicalBandWidth; j++){
 				if(method == 1) {
-					if(binarySignalMatrix[i][j]){ // check if pixel is signal
-						double proportion = calculateProportionSignalRegion (i,i+typicalBandHeight,j,j+typicalBandWidth);
-						pixels.add(new PixelWithRealValue(i, j, proportion));
-						averageValue+=proportion;
-						numValues++;
-					}
+					if(!binarySignalMatrix[i][j]) continue;
+					double proportion = calculateProportionSignalRegion (i,i+typicalBandHeight,j,j+typicalBandWidth);
+					pixels.add(new PixelWithRealValue(i, j, proportion));
+					averageValue+=proportion;
+					numValues++;
 				} else if (method == 2) {
-					Double logPostRegion = calculateHMMLogPosteriorRegion (i,i+typicalBandHeight,j,j+typicalBandWidth);
-					if(logPostRegion!=null) {
-						pixels.add(new PixelWithRealValue(i, j, LogMath.power10(logPostRegion)));
-						averageValue+=logPostRegion;
-						numValues++;
-					}
+					double avgPostRegion = calculateProbabilityAverageSignalMixtureModel(i,i+typicalBandHeight,j,j+typicalBandWidth);
+					pixels.add(new PixelWithRealValue(i, j, avgPostRegion));
+					averageValue+=avgPostRegion;
+					numValues++;
 				} else if (method == 3) {
 					double proportion = calculateProportionSignalRegion (i,i+typicalBandHeight,j,j+typicalBandWidth);
-					if(proportion < 0.5) continue;
+					if(proportion < threshold) continue;
 					double logCondChange = calculateLogFoldChangeMixtureModel (i,i+typicalBandHeight,j,j+typicalBandWidth);
-					System.out.println("Log cond change: "+logCondChange);
+					distLogFold.processDatapoint(logCondChange);
 					pixels.add(new PixelWithRealValue(i, j, logCondChange));
 					averageValue+=logCondChange;
 					numValues++;
-				}
+				} else if (method == 4) {
+					Double logPostRegion = calculateHMMLogPosteriorRegion (i,i+typicalBandHeight,j,j+typicalBandWidth);
+					if(logPostRegion==null) continue;
+					pixels.add(new PixelWithRealValue(i, j, LogMath.power10(logPostRegion)));
+					averageValue+=logPostRegion;
+					numValues++;
+				} 
 				
 			}
 		}
 		Collections.sort(pixels);
-		if(method == 3) threshold = averageValue / numValues;
+		if(method == 3) {
+			distLogFold.printDistributionInt(System.out);
+			threshold = averageValue / numValues;
+			System.out.println("Average log fold: "+threshold);
+		}
 		for(PixelWithRealValue pixel:pixels) {
 			int i = pixel.getRow();
 			int j = pixel.getColumn();
@@ -506,6 +510,24 @@ public class IntensityProcessor {
 		if(logCondBkg == null) return -logCondSignal;
 		return logCondSignal-logCondBkg;
 	}
+	
+	public double calculateProbabilityAverageSignalMixtureModel (int startRow, int endRow, int startColumn, int endColumn) {
+		DistributionState signalState = new DistributionState("", 0.5, signalDistribution);
+		DistributionState backgroundState = new DistributionState("", 0.5, backgroundDistribution);
+		double avgIntensity = 0;
+		int datapoints = 0;
+		for(int i=startRow; i<endRow; i++){ //opens window
+			for(int j=startColumn; j<endColumn; j++) {
+				avgIntensity += intensitiesMatrix[i][j];
+				datapoints++;
+			}
+		}
+		if(datapoints>0) avgIntensity /=datapoints;
+		Double logCondSignal = signalState.getEmission(avgIntensity, 0);
+		Double logCondBkg = backgroundState.getEmission(avgIntensity, 0);
+		Double sum = LogMath.logSum(logCondSignal, logCondBkg);
+		return LogMath.power10(LogMath.logProduct(logCondSignal, -sum));
+	}
 
 	private void addBandWithinRegion(int startRow, int endRow, int startColumn, int endColumn) {
 		for(int y=startRow; y<endRow; y++){ //opens window
@@ -533,17 +555,23 @@ public class IntensityProcessor {
 			for(Well w:wells){
 				int startColumn = w.getStartCol();
 				//Check space before well
-				for(int x=endLastWell+5;x<startColumn-typicalBandWidth-5;x++) {
-					//addBandWithinRegion(startRow, endRow, x, x+typicalBandWidth, threshold);
+				for(int j=endLastWell+5;j<startColumn-typicalBandWidth-5;j++) {
+					double proportion = calculateProportionSignalRegion (startRow,endRow,j,j+typicalBandWidth);
+					if(proportion < threshold) continue;
+					addBandWithinRegion(startRow, endRow, j, j+typicalBandWidth);
 				}
 				int endColumn = startColumn + w.getWellWidth();	
-				if(w.getWellID() != bandsWell){
-					//addBandWithinRegion(startRow, endRow, startColumn, endColumn, threshold);
+				if(w.getWellID() != bandsWell) {
+					double proportion = calculateProportionSignalRegion (startRow,endRow,startColumn,startColumn+typicalBandWidth);
+					if(proportion < threshold) continue;
+					addBandWithinRegion(startRow, endRow, startColumn, startColumn+typicalBandWidth);
 				}
 				endLastWell = endColumn;
 			}
-			for(int x=endLastWell+5;x<imageColumns-typicalBandWidth-1;x++) {
-				//addBandWithinRegion(startRow, endRow, x, x+typicalBandWidth, threshold);
+			for(int j=endLastWell+5;j<imageColumns-typicalBandWidth-1;j++) {
+				double proportion = calculateProportionSignalRegion (startRow,endRow,j,j+typicalBandWidth);
+				if(proportion < threshold) continue;
+				addBandWithinRegion(startRow, endRow, j, j+typicalBandWidth);
 			}
 		}
 	}
@@ -562,7 +590,8 @@ public class IntensityProcessor {
 			KMeansWellPrediction kmeansK = new KMeansWellPrediction(imageRows, imageColumns, bands, k);
 			kmeansK.verticalBandClustering();
 			var[k]=kmeansK.calculateVariance();
-			logVar[k]=Math.log10(var[k]);
+			if(var[k]==0) logVar[k]=logVar[k-1];
+			else logVar[k]=Math.log10(var[k]);
 		}
 		var[0] = var[1];
 		logVar[0] = logVar[1];
@@ -574,7 +603,7 @@ public class IntensityProcessor {
 		for(int k=1; k<var.length; k++){
 			deltaVar[k]=var[k-1]-var[k];
 			deltaLogVar[k]=Math.abs(logVar[k-1]-logVar[k]);
-			System.out.println("k: "+k+" stdev "+Math.sqrt(var[k])+" logvar: "+logVar[k]+" delta logVar: " +deltaLogVar[k]);
+			//System.out.println("k: "+k+" stdev "+Math.sqrt(var[k])+" logvar: "+logVar[k]+" delta logVar: " +deltaLogVar[k]);
 		}
 		double maxdLogSE=deltaLogVar[0];
 		int selectedK=0;
@@ -614,17 +643,36 @@ public class IntensityProcessor {
 
 	public void clusterSamples() {
 		//STEP 6: Cluster samples (Wells)
-        sampleClustering = new DiceSampleClustering();
-        clusteringTree=sampleClustering.clusterSamples(wells);
+        //SampleClusteringAlgorithm sampleClustering = new DiceSampleClustering();
+        SampleClusteringAlgorithm sampleClustering = new PosteriorMeanMixtureModelSampleClustering();
+        samplesDistanceMatrix=sampleClustering.clusterSamples(this);
 	}
 	public void saveResults(String outputFilePrefix) throws IOException {
-		String outputFile = outputFilePrefix+"_tree.nwk";
-		try (PrintStream out = new PrintStream(outputFile)) {
-			clusteringTree.printTree(out);
+		String outputFileDendrogam = outputFilePrefix+"_tree.nwk";
+		List<String> sampleIds = new ArrayList<>();
+		for(Well well:wells) sampleIds.add(well.getSampleId());
+		DistanceMatrix matrix=new DistanceMatrix(sampleIds, samplesDistanceMatrix);
+		NeighborJoining njClustering = new NeighborJoining();
+		njClustering.loadMatrix(matrix);
+		Dendrogram njDendogram = njClustering.constructNJTree();
+		try (PrintStream out = new PrintStream(outputFileDendrogam)) {
+			njDendogram.printTree(out);
 		}
 		
-		sampleClustering.saveDistanceMatrix(outputFilePrefix);
+		String outputFileMatrix = outputFilePrefix+"_distances.txt";
+		int n = sampleIds.size();
+		try (PrintStream out = new PrintStream(outputFileMatrix)) {
+			out.println(n);
+			for(int i=0; i<n; i++){
+				out.print(sampleIds.get(i));
+				for(int j=0; j<n; j++){
+					out.print(" "+samplesDistanceMatrix[i][j]);
+				}
+				out.println();
+			}
+		}
 	}
+	
 	public void saveBinSignal(int[][] binarySignalMatrix){
 		String outputFile = "BinarySingal.csv";
 		try (PrintStream out = new PrintStream(outputFile)) {
@@ -654,6 +702,12 @@ public class IntensityProcessor {
 	}
 	public List<Band> getBands(){
 		return bands;
+	}
+	/**
+	 * @return the numClusters
+	 */
+	public int getNumClusters() {
+		return numClusters;
 	}
 
 	public void deleteBand(Band selected) {

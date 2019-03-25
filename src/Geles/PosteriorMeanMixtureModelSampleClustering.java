@@ -1,0 +1,135 @@
+package Geles;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import ngsep.math.PhredScoreHelper;
+import ngsep.variants.CalledGenomicVariant;
+import ngsep.variants.CalledGenomicVariantImpl;
+import ngsep.variants.GenomicVariant;
+import ngsep.variants.GenomicVariantImpl;
+import ngsep.vcf.VCFFileHeader;
+import ngsep.vcf.VCFRecord;
+
+public class PosteriorMeanMixtureModelSampleClustering implements SampleClusteringAlgorithm {
+
+	private List<VCFRecord> records;
+	private List<String> alleles;
+	
+	public PosteriorMeanMixtureModelSampleClustering() {
+		alleles = new ArrayList<>();
+		alleles.add("BKG");
+		alleles.add("BAND");
+	}
+	@Override
+	public double [][] clusterSamples(IntensityProcessor processor) {
+		records = new ArrayList<>();
+		List<Well> wells = processor.getWells();
+		VCFFileHeader header = VCFFileHeader.makeDefaultEmptyHeader();
+		for(Well well:wells) {
+			header.addDefaultSample(well.getSampleId());
+		}
+		List<Band> bands = processor.getBands();
+		Map<Integer,List<Band>> alleleClustersMap = new HashMap<>();
+		for(Band b:bands) {
+			if(b.getAlleleClusterId()<0) continue; 
+			List<Band> clusterBands = alleleClustersMap.get(b.getAlleleClusterId());
+			if(clusterBands==null) {
+				clusterBands = new ArrayList<>();
+				alleleClustersMap.put(b.getAlleleClusterId(), clusterBands);
+			}
+			clusterBands.add(b);
+		}
+		int n = wells.size();
+		double [][] distanceMatrix = new double [n][n];
+		int [][] callsPerDatapoint = new int [n][n]; 
+		for(int i=0;i<n;i++) {
+			Arrays.fill(distanceMatrix[i], 0);
+			Arrays.fill(callsPerDatapoint[i], 0);
+		}
+		for(List<Band> cluster:alleleClustersMap.values()) {
+			VCFRecord record = buildVCFRecord(cluster, header, processor);
+			updateDistances(record.getCalls(), distanceMatrix, callsPerDatapoint);
+			records.add(record);
+		}
+		for(int i=0;i<n;i++) {
+			for(int j=0;j<n;j++) {
+				if(callsPerDatapoint[i][j]>0) distanceMatrix[i][j]/=callsPerDatapoint[i][j];
+			}
+		}
+		return distanceMatrix;
+	}
+	/**
+	 * 
+	 * @param cluster of bands to make record. PRE: cluster.size()>0
+	 * @param wells
+	 * @param header
+	 * @param processor
+	 * @return VCFRecord
+	 */
+	private VCFRecord buildVCFRecord(List<Band> cluster, VCFFileHeader header, IntensityProcessor processor) {
+		List<Well> wells = processor.getWells();
+		List<String> sampleIds = header.getSampleIds();
+		int n = sampleIds.size();
+		List<CalledGenomicVariant> calls = new ArrayList<>(n);
+		for(int i=0;i<n;i++) calls.add(null);
+		int first = getHorizontalCentroid (cluster);
+		GenomicVariant variant = new GenomicVariantImpl("Image", first, alleles);
+		double sumHeight = 0;
+		for(Band b:cluster) {
+			int sampleIdx = b.getWellID();
+			CalledGenomicVariant call = new CalledGenomicVariantImpl(variant, CalledGenomicVariant.GENOTYPE_HOMOALT);
+			double prob = processor.calculateProbabilityAverageSignalMixtureModel(b.getStartRow(), b.getEndRow(), b.getStartColumn(), b.getEndColumn());
+			call.setGenotypeQuality(PhredScoreHelper.calculatePhredScore(1-prob));
+			calls.set(sampleIdx, call);
+			sumHeight += b.calculateBandHeight();
+		}
+		int halfRowSize = (int) Math.round(sumHeight / (2.0*cluster.size()));
+		for(int i=0;i<n;i++) {
+			if(calls.get(i)==null) {
+				Well well = wells.get(i);
+				CalledGenomicVariant call = new CalledGenomicVariantImpl(variant, CalledGenomicVariant.GENOTYPE_HOMOREF);
+				int startRow = Math.max(0, first - halfRowSize);
+				int endRow = Math.min(processor.getIntensities().length, first + halfRowSize);
+				double prob = processor.calculateProbabilityAverageSignalMixtureModel(startRow, endRow, well.getStartCol(), well.getStartCol()+well.getWellWidth());
+				call.setGenotypeQuality(PhredScoreHelper.calculatePhredScore(1-prob));
+				calls.set(i, call);
+			}
+		}
+		return new VCFRecord(variant, VCFRecord.DEF_FORMAT_ARRAY_QUALITY, calls, header);
+	}
+	private int getHorizontalCentroid(List<Band> cluster) {
+		double sumCentroid = 0;
+		for(Band b:cluster) {
+			sumCentroid += b.getMiddleRow();
+		}
+		return (int) Math.round(sumCentroid/cluster.size());
+	}
+	private void updateDistances(List<CalledGenomicVariant> calls, double[][] distanceMatrix, int[][] callsPerDatapoint) {
+		int n = calls.size();
+		for(int j=0;j<n;j++){
+			CalledGenomicVariant call1 = calls.get(j);
+			if(call1.isUndecided() || call1.getGenotypeQuality()<20) continue;
+    		for(int k=0;k<n;k++){
+    			if(j==k) continue;
+    			CalledGenomicVariant call2 = calls.get(k);
+    			if(call2.isUndecided() || call2.getGenotypeQuality()<20) continue;
+    			//distance between pair of genotypes for a single variant
+			    distanceMatrix[j][k] += Math.abs(call1.getIndexesCalledAlleles()[0]-call2.getIndexesCalledAlleles()[0]);
+				//matrix needed to save value by how divide
+				callsPerDatapoint[j][k]++;
+	    	}
+    	}
+	}
+	@Override
+	public void saveClusteringData(String outputFilePrefix) throws IOException {
+		// TODO Auto-generated method stub
+		
+	}
+	
+
+}
