@@ -19,11 +19,8 @@
  *******************************************************************************/
 package Geles;
 
-import java.util.*;
-
-import JSci.maths.statistics.NormalDistribution;
-import JSci.maths.statistics.ProbabilityDistribution;
-import ngsep.math.Distribution;
+import java.util.ArrayList;
+import java.util.List;
 
 public class DynamicDistribution {
 

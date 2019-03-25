@@ -22,15 +22,15 @@ package Geles;
 import java.util.List;
 
 /**
- * 
- * @author 
+ * Common interface for horizontal band clustering algorithms
+ * @author Jorge Duitama
  *
  */
 public interface BandsClusteringAlgorithm {
 	/**
-	 * 
-	 * @param bands
-	 * @return
+	 * Clusters horizontally the given bands. Assigns a cluster id for each band
+	 * @param bands to cluster
+	 * @return int Number of clusters
 	 */
 	public int clusterBands(List<Band> bands);
 }

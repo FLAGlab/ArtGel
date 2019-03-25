@@ -465,15 +465,16 @@ public class IntensityProcessor {
 	}
 	
 	public void createWellsKmeans() {
+		//Select best K value
 		int highKvalue = (int)Math.round(imageColumns/typicalBandWidth);
 		System.out.println("highK: " + highKvalue);
 		
 		double[] var = new double[highKvalue+1];
 		double[] logVar = new double[var.length];
 		for(int k=1; k<=highKvalue; k++){
-			kMeansWellPrediction kmeansK = new kMeansWellPrediction(imageRows, imageColumns, bands, k);
-			kmeansK.clusterWells();
-			var[k]=kmeansK.getVariance();
+			KMeansWellPrediction kmeansK = new KMeansWellPrediction(imageRows, imageColumns, bands, k);
+			kmeansK.verticalBandClustering();
+			var[k]=kmeansK.calculateVariance();
 			logVar[k]=Math.log10(var[k]);
 		}
 		var[0] = var[1];
@@ -511,41 +512,9 @@ public class IntensityProcessor {
 //			}
 //		}
 		
-
-		kMeansWellPrediction km = new kMeansWellPrediction(imageRows, imageColumns, bands, selectedK);
-		km.clusterWells();
-		
-		List<BandCluster> clusters = km.getClusters();
-		int co=0;
-		for(BandCluster cluster:clusters) {
-			if(cluster.getBands().size()==0) {
-				System.err.println("Empty cluster");
-				continue;
-			}
-			co++;
-			System.out.println("Cluster#: " + co);
-			int colFirst=imageColumns;
-			int colLast=0;
-			for(Band b:cluster.getBands()){
-				int firstC=b.getStartColumn();
-				int lastC=b.getEndColumn();
-				if(firstC<colFirst){
-					colFirst=firstC;
-				}
-				if(lastC>colLast){
-					colLast=lastC;
-				}
-			}
-			Well well = new Well(0,colFirst,imageRows,colLast-colFirst+1,wells.size());
-			int wellID = well.getWellID();
-			for(Band b:cluster.getBands()){
-				System.out.println("band#: " + b.getBandID());
-				b.setWellID(wellID);
-				well.addBand(b);
-			}
-	        wells.add(well);
-		}
-		
+		KMeansWellPrediction km = new KMeansWellPrediction(imageRows, imageColumns, bands, selectedK);
+		km.verticalBandClustering();
+		wells = km.createWells();	
 	}
 	
 	public void saveResults(String outputFilePrefix) throws IOException {
