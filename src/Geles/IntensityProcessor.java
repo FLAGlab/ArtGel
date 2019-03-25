@@ -138,21 +138,21 @@ public class IntensityProcessor {
 		}
         
     	// STEP 5: Identify bands using sliding window
-    	predictBandsSlidingWindow(0.90); //0.9 threshold
+    	predictBandsSlidingWindow(0.8); //0.8 threshold
     	
     	// STEP 6: Identify wells performing vertical clustering of bands
     	createWellsBandClusters();
     	
     	// STEP 7: Identify missing bands from registered alleles
-    	discoverMissingBands(0.8);
+    	discoverMissingBands(0.7);
     	
     	// STEP 8: Identify missing bands small size
     	
-    	double signalThreshold = 0.7;
-    	predictBandsSlidingWindow(signalThreshold);
+    	//double signalThreshold = 0.7;
+    	//predictBandsSlidingWindow(signalThreshold);
     	
     	// STEP 7: Identify missing bands from registered alleles
-    	discoverMissingBands(0.7);
+    	//discoverMissingBands(0.7);
     	
     	// STEP 8: Identify missing bands small size
     	//bandSize = typicalBandDimensions;
@@ -419,51 +419,67 @@ public class IntensityProcessor {
 	 * @param threshold double minimum fraction of signal in sliding window to create a band
 	 */
 	private void predictBandsSlidingWindow(double threshold) {
-		int totPixels=typicalBandHeight*typicalBandWidth;
-		double ones = 0;
-		double twos = 0;
-		int count = 0;
 		
 		for(int i=0; i<imageRows-typicalBandHeight; i++){ //start loop along all signal matrix
 			for(int j=0; j<imageColumns-typicalBandWidth; j++){
-				
 				if(binarySignalMatrix[i][j] == 1){ // check if pixel is signal
-					for(int y=0; y<typicalBandHeight; y++){ //opens window
-						for(int x=0; x<typicalBandWidth;x++){
-							if(binarySignalMatrix[i+y][j+x] == 1){
-								ones++;
-							}
-							else if(binarySignalMatrix[i+y][j+x] == 2){
-								twos++;
-								break;
-							}
-						}
-					}
+					addBandWithinRegion (i, i+typicalBandHeight-1, j, j + typicalBandWidth-1, threshold);
+				}	
+			}
+		}
+	}
+	private void addBandWithinRegion(int startRow, int endRow, int startColumn, int endColumn, double threshold) {
+		double totPixels=(endRow-startRow)*(endColumn-startColumn);
+		double ones = 0;
+		for(int y=startRow; y<endRow; y++){ //opens window
+			for(int x=startColumn; x<endColumn; x++){
+				if(binarySignalMatrix[y][x] == 1){
+					ones++;
 				}
-				
-				//check if window has signal over threshold and no visited pixels
-				if(twos == 0){
-					if(ones/totPixels >= threshold){
-						count++;
-						Band band = new Band(i, i+typicalBandHeight-1, j, j+typicalBandWidth-1, count);
-						bands.add(band);
-						for(int y=0; y<typicalBandHeight; y++){ //update observation matrix
-							for(int x=0; x<typicalBandWidth; x++){
-								if(binarySignalMatrix[i+y][j+x] == 1){
-									binarySignalMatrix[i+y][j+x] = 2;
-								}
-							}
-						}
-					}
+				else if(binarySignalMatrix[y][x] == 2){
+					return;
 				}
-				ones=0;
-				twos=0;
-				
+			}
+		}
+		if(ones/totPixels <threshold) return;
+		Band band = new Band(startRow, endRow, startColumn, endColumn, bands.size());
+		bands.add(band);
+		for(int y=startRow; y<endRow; y++) {
+			for(int x=startColumn; x<endColumn; x++) {
+				binarySignalMatrix[y][x] = 2;
 			}
 		}
 		
 	}
-	
+
+	private void discoverMissingBands(double threshold) {
+		List<Band> currentBands = new ArrayList<>(bands);
+		for(Band b:currentBands) {
+			int bandsWell = b.getWellID();
+			int startRow = b.getStartRow();
+			int endRow = b.getEndRow();
+			int endLastWell = 0;
+			for(Well w:wells){
+				int startColumn = w.getStartCol();
+				//Check space before well
+				for(int x=endLastWell+5;x<startColumn-typicalBandWidth-5;x++) {
+					addBandWithinRegion(startRow, endRow, x, x+typicalBandWidth, threshold);
+				}
+				int endColumn = startColumn + w.getWellWidth();	
+				if(w.getWellID() != bandsWell){
+					addBandWithinRegion(startRow, endRow, startColumn, endColumn, threshold);
+				}
+				endLastWell = endColumn;
+			}
+			for(int x=endLastWell+5;x<imageColumns-typicalBandWidth-1;x++) {
+				addBandWithinRegion(startRow, endRow, x, x+typicalBandWidth, threshold);
+			}
+		}
+	}
+	public void createWellsBandClusters() {
+		wells = new ArrayList<>();
+    	createWellsKmeans();   
+	}
 	public void createWellsKmeans() {
 		//Select best K value
 		int highKvalue = (int)Math.round(imageColumns/typicalBandWidth);
@@ -516,7 +532,17 @@ public class IntensityProcessor {
 		km.verticalBandClustering();
 		wells = km.createWells();	
 	}
-	
+	public void clusterAlleles(){
+		//STEP : Cluster bands looking for variant alleles
+    	for (Band b:bands) b.setAlleleClusterId(-1);
+        BandsClusteringAlgorithm bandsClustering = new HeuristicCliqueBandClusteringAlgorithm();
+        numClusters = bandsClustering.clusterBands(bands);
+        System.out.println("Total cliques: "+numClusters);
+        
+        //STEP 6: Cluster samples (Wells)
+        sampleClustering = new DiceSampleClustering();
+        clusteringTree=sampleClustering.clusterSamples(wells);
+	}
 	public void saveResults(String outputFilePrefix) throws IOException {
 		String outputFile = outputFilePrefix+"_tree.nwk";
 		try (PrintStream out = new PrintStream(outputFile)) {
@@ -570,80 +596,9 @@ public class IntensityProcessor {
 		bands.add(band);
 		
 	}
-	public void createWellsBandClusters() {
-		
-		//STEP 1: Identify wells
-		wells = new ArrayList<>();
-    	createWellsKmeans();
-  
- 
-        
-	}
-	private void discoverMissingBands(double threshold) {
-		int count = 0;
-		List<Band> newBands = new ArrayList<>();
-		for(Band b:bands){
-			int prevN = bands.size();
-			int bandsWell = b.getWellID();
-			int startR = b.getStartRow();
-			int endR = b.getEndRow();
-			
-			for(Well w:wells){
-				if(w.getWellID() != bandsWell){
-					int startC = w.getStartCol();
-					int endC = startC + w.getWellWidth();
-					
-					int totPixels=(endR-startR)*(endC-startC);
-					double ones = 0;
-					double twos = 0;
-					
-					//open window
-					for(int y=startR; y<endR+1; y++){ //opens window
-						for(int x=startC; x<endC+1;x++){
-							if(binarySignalMatrix[y][x] == 1){
-								ones++;
-							}
-							else if(binarySignalMatrix[y][x] == 2){
-								twos++;
-								break;
-							}
-						}
-					}
-					//check if window has signal over threshold and no visited pixels
-					if(twos == 0){
-						if(ones/totPixels >= threshold){
-							count++;
-							Band newBand = new Band(startR, endR, startC, endC, count+prevN);
-							newBands.add(newBand);
-							for(int y=startR; y<endR+1; y++){ //update observation matrix
-								for(int x=startC; x<endC+1; x++){
-									if(binarySignalMatrix[y][x] == 1){
-										binarySignalMatrix[y][x] = 2;
-									}
-								}
-							}
-						}
-					}
-					ones=0;
-					twos=0;
-					
-				}
-			}
-			
-		}
-		for(Band newBand:newBands) bands.add(newBand);
-	}
+	
 
-	public void clusterAlleles(){
-		//STEP : Cluster bands looking for variant alleles
-    	for (Band b:bands) b.setAlleleClusterId(-1);
-        BandsClusteringAlgorithm bandsClustering = new HeuristicCliqueBandClusteringAlgorithm();
-        numClusters = bandsClustering.clusterBands(bands);
-        System.out.println("Total cliques: "+numClusters);
-        
-        //STEP 6: Cluster samples (Wells)
-        sampleClustering = new DiceSampleClustering();
-        clusteringTree=sampleClustering.clusterSamples(wells);
-	}
+
+
 	
 }
