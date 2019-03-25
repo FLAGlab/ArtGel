@@ -41,8 +41,6 @@ public class DynamicDistribution {
 	private double bwdVar;
 	private double signalMean;
 	private double signalVar;
-	private ProbabilityDistribution signalDistribution;
-	private ProbabilityDistribution bwdDistribution;
 	
 	
 	public DynamicDistribution(double [][] intensityMatrix){
@@ -74,11 +72,9 @@ public class DynamicDistribution {
 		double preBwdMean=defaultMeanBwd;
 		double preSignalMean=defaultMeanSig;
 		double bwdDifference = Math.abs(bwdMean-preBwdMean);
-		double signalDifference = Math.abs(signalMean-preSignalMean);
 		preBwdMean=bwdMean;
 		preSignalMean=signalMean;
 		int iter=1;
-		//|| (signalDifference > tolerance && iter<maxIter)
 		while(bwdDifference > tolerance && iter<maxIter){
 			//likelihoodBwd=calculateLikelihood(bwdMean, bwdVar);
 			//likelihoodSignal=calculateLikelihood(signalMean, signalVar);
@@ -99,13 +95,12 @@ public class DynamicDistribution {
 			priorSignal = calculatePrior(weightSignal);
 			
 			bwdDifference= Math.abs(bwdMean-preBwdMean);
-			signalDifference= Math.abs(signalMean-preSignalMean);
 			
 			preBwdMean=bwdMean;
 			preSignalMean=signalMean;
 			iter++;
 			
-			System.out.println("bwdDIff: "+bwdDifference+"\t iter: "+iter+ "\t bwdMean: "+bwdMean+"  bwdVar: "+bwdVar +"\t signalMean: "+signalMean+  "    signalVar: "+signalVar);
+			//System.out.println("bwdDIff: "+bwdDifference+"\t iter: "+iter+ "\t bwdMean: "+bwdMean+"  bwdVar: "+bwdVar +"\t signalMean: "+signalMean+  "    signalVar: "+signalVar);
 		}
 		if(bwdMean > signalMean-20) System.err.println("WARN: Background average "+bwdMean+" is larger than signal average: "+signalMean+". Try enhancing the contrast");
 		

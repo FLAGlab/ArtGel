@@ -31,14 +31,12 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
 import javax.imageio.ImageIO;
 
 import JSci.maths.statistics.NormalDistribution;
-import JSci.maths.statistics.ProbabilityDistribution;
 
 /**
  * Processes gel image 
@@ -46,15 +44,27 @@ import JSci.maths.statistics.ProbabilityDistribution;
  *
  */
 public class IntensityProcessor {
-	private List<Well> wells = new ArrayList<>();
-	private List<Band> bands = new ArrayList<>();
+	
+	//Image attributes
+	private BufferedImage image;
 	private int imageRows;
 	private int imageColumns;
-	private BufferedImage image;
 	private double  [] [] intensitiesMatrix;
+	
+	// Grey intensity distributions
+	private NormalDistribution backgroundDistribution;
+	private NormalDistribution signalDistribution;
+	
+	// Binary signal image matrix
 	private int [][] binarySignalMatrix;
-	private int[][] observationsMatrix;
-	private int[] typicalBandDimensions;
+	
+	//Typical band dimensions
+	private int typicalBandHeight;
+	private int typicalBandWidth;
+	
+	private List<Well> wells = new ArrayList<>();
+	private List<Band> bands = new ArrayList<>();
+	
 	private int numClusters;
 	
 	private SampleClusteringAlgorithm sampleClustering;
@@ -93,6 +103,9 @@ public class IntensityProcessor {
         	}
         	//System.out.println("Col score pos "+j+": "+colScores[j]);
         }
+        backgroundDistribution = signalDistribution = null;
+        typicalBandHeight = typicalBandWidth = 0;
+        
         wells = new ArrayList<>();
         bands = new ArrayList<>();
 	}
@@ -103,47 +116,58 @@ public class IntensityProcessor {
 		return sum/3;
 	}
 	
-	public void processImage() {
-        // STEP 1: Build HMM to identify wells and bands
-        HMM hmm = buildHMM();
+	public void processImage() throws Exception {
+		wells = new ArrayList<>();
+		bands = new ArrayList<>();
+		int correctionRounds = 1;
+		for(int i=0;i<=correctionRounds;i++) {
+			// STEP 1: Predict distributions of background and signal combined in the image
+			predictIntensityDistributions();
+			
+			// STEP 2: Build HMM to identify wells and bands
+	        HMM hmm = buildHMM();
+	        
+	        // STEP 3: Identify signal
+	    	predictSignalHMM(hmm);
+	    	
+	        //STEP 4: Identify typical band dimensions
+	    	estimateBandDimensions();
+	    	
+	    	// Perform corrections on the image based on the learned values
+	    	if(i<correctionRounds) correctImage();
+		}
         
-        //STEP 2: Identify signal
-    	predictSignalHMM(hmm);
+    	// STEP 5: Identify bands using sliding window
+    	predictBandsSlidingWindow(0.90); //0.9 threshold
     	
-        //STEP 3: Identify bands
-	        //predict typical band
-    	this.typicalBandDimensions = estimateBandDim(binarySignalMatrix);
-    	//Identify bands using sliding window
-    	predictBandsSlidingWindow(typicalBandDimensions,0.90); //0.9 threshold
+    	// STEP 6: Identify wells performing vertical clustering of bands
+    	createWellsBandClusters();
     	
-    	//STEP 4: Identify wells AND cluster bands and samples
-    	clusterBands();
+    	// STEP 7: Identify missing bands from registered alleles
+    	//discoverMissingBands(0.8);
     	
-    	//STEP 5: Identify missing bands from registered alleles
-    	discoverMissingBands(0.8);
+    	// STEP 8: Identify missing bands small size
+    	//int[] bandSize = typicalBandDimensions;
+    	//bandSize[0] = bandSize[0] / 1;
+    	//double signalThreshold = 0.7;
+    	//predictBandsSlidingWindow(bandSize, signalThreshold);
     	
-    	//STEP 6: Identify missing bands small size
-    	int[] bandSize = typicalBandDimensions;
-    	bandSize[0] = bandSize[0] / 1;
-    	double signalThreshold = 0.7;
-    	predictBandsSlidingWindow(bandSize, signalThreshold);
+    	// STEP 7: Identify missing bands from registered alleles
+    	//discoverMissingBands(0.7);
     	
-    	//STEP 7: Identify missing bands from registered alleles
-    	discoverMissingBands(0.7);
+    	// STEP 8: Identify missing bands small size
+    	//bandSize = typicalBandDimensions;
+    	//bandSize[0] = bandSize[0] / 2;
+    	//signalThreshold = 0.8;
+    	//predictBandsSlidingWindow(bandSize, signalThreshold);
     	
-    	//STEP 6: Identify missing bands small size
-    	bandSize = typicalBandDimensions;
-    	bandSize[0] = bandSize[0] / 2;
-    	signalThreshold = 0.8;
-    	predictBandsSlidingWindow(bandSize, signalThreshold);
+    	// STEP 7: Identify missing bands from registered alleles
+    	//discoverMissingBands(0.6);
     	
-    	//STEP 7: Identify missing bands from registered alleles
-    	discoverMissingBands(0.6);
+    	// STEP 6: Identify wells performing vertical clustering of bands
+    	// createWellsBandClusters();
     	
-    	//STEP 8: Identify wells
-    	clusterBands();
-    	
-    	//STEP 9: Cluster alleles and samples
+    	// STEP 9: Cluster alleles and samples
     	clusterAlleles();
     	
     	//Print for testing
@@ -168,22 +192,23 @@ public class IntensityProcessor {
         
 	}
 
-	private HMM buildHMM() {
-		//ProbabilityDistribution distBwd= new NormalDistribution(0,1600);
-        //ProbabilityDistribution distSignal= new NormalDistribution(254,1600);
+	private void predictIntensityDistributions() {
+		// backgroundDistribution = new NormalDistribution(0,1600);
+        // signalDistribution= new NormalDistribution(254,1600);
+		// Mixture model to predict background and signal distributions
         DynamicDistribution intensityDistribution = new DynamicDistribution(intensitiesMatrix);
         double bwdMean = intensityDistribution.getBwdMean();
         double bwdVar = intensityDistribution.getBwdVar();
         double signalMean = intensityDistribution.getSignalMean();
         double signalVar = intensityDistribution.getsignalVar();
-        
-        //////////
-        ProbabilityDistribution distBwd= new NormalDistribution(bwdMean,bwdVar);
-        ProbabilityDistribution distSignal= new NormalDistribution(signalMean,signalVar);
-        
+        backgroundDistribution = new NormalDistribution(bwdMean,bwdVar);
+        signalDistribution = new NormalDistribution(signalMean,signalVar);
+	}
+	
+	private HMM buildHMM() {
         List<DistributionState> states = new ArrayList<>();
-        DistributionState background = new DistributionState("background",1-Pstart_signal,distBwd);
-        DistributionState signal = new DistributionState("signal",Pstart_signal,distSignal);
+        DistributionState background = new DistributionState("background",1-Pstart_signal,backgroundDistribution);
+        DistributionState signal = new DistributionState("signal",Pstart_signal,signalDistribution);
     	
     	states.add(background);
     	states.add(signal);
@@ -197,25 +222,9 @@ public class IntensityProcessor {
     	
     	hmm.setTransitions(tMatrix);
     	return hmm;
-	}	
-
-	public void predictWellsHMM(HMM hmm) {
-		List<Double> columnScores = calculateColumnScores(intensitiesMatrix);
-    	System.out.println("Scores: "+columnScores);
-		double [][] posteriors = new double [columnScores.size()][2];
-		hmm.calculatePosteriors(columnScores, posteriors);
-		
-    	int nextStart = -1;
-    	for(int i=0;i<columnScores.size();i++){
-    		if(posteriors[i][1]>0.99){
-    			if(nextStart==-1) nextStart = i; 
-    		} else if (nextStart>=0) {
-    			createWell(nextStart,i-1);
-    			nextStart = -1;
-    		}
-    	}
-    	if(nextStart>=0) createWell(nextStart, columnScores.size()-1);
 	}
+
+	
 	
 	public void predictSignalHMM(HMM hmm) {
 		List<Double> observations = new ArrayList<>();
@@ -244,11 +253,10 @@ public class IntensityProcessor {
 	    	}
 	    	observations.clear();  	
 		}
-		saveBinSignal(binarySignalMatrix);
-		observationsMatrix=binarySignalMatrix;
+		//saveBinSignal(binarySignalMatrix);
 		
 		//Save posterior matrices
-		String outputFile1 = "PosteriorBWD.csv";
+		/*String outputFile1 = "PosteriorBWD.csv";
 		try (PrintStream out = new PrintStream(outputFile1)) {
 			for(int i=0; i<posBwdMatrix.length; i++){
 				for(int j=0; j<posBwdMatrix[0].length; j++){
@@ -269,35 +277,10 @@ public class IntensityProcessor {
 			}
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
-		}
+		}*/
 	}
 	
-	private List<Double> calculateColumnScores(double[][] intensitiesMatrix) {
-		// Calculates average of pixel and same-column neighbors
-		double [][] avgNeighbors = new double[intensitiesMatrix.length][intensitiesMatrix[1].length];
-		avgNeighbors=intensitiesMatrix;
-		for(int i=1;i<intensitiesMatrix.length-1;i++){
-			for(int j=1; j<intensitiesMatrix[1].length-1;j++){
-				double avg=(intensitiesMatrix[i-1][j]+intensitiesMatrix[i+1][j]+intensitiesMatrix[i][j])/3;
-				avgNeighbors[i][j]=avg;
-			}
-		}
-		
-		//Calculates the maximum average value in each column
-		List<Double> columnScores=new ArrayList<>();
-		for(int k=0;k<avgNeighbors[1].length;k++){
-			double maxIntensity=0;
-			for(int i=0;i<avgNeighbors.length;i++){
-				if(avgNeighbors[i][k]>maxIntensity){
-					maxIntensity=avgNeighbors[i][k];
-				}	
-			}
-			columnScores.add((Double)maxIntensity);
-		}
-		return columnScores;
-	}
-	
-	private int[] estimateBandDim(int[][] binarySignalMatrix){
+	private void estimateBandDimensions() throws Exception {
 		//Mean
 		int[][] matrix = binarySignalMatrix;
 		ArrayList<Integer> rowBandWidths = new ArrayList<>();
@@ -313,19 +296,21 @@ public class IntensityProcessor {
 						rowCounter++;
 					}
 					if(matrix[i][j]==1 && matrix[i][j] != matrix[i][j+1]){
-						//TODO (def:10) parametrizar limite minimo de alto de banda??
-						if(rowCounter > 1){
+						if(rowCounter > 1) {
+							//System.out.println("New width: " + rowCounter+" at row: "+i+" col: "+j);
 							rowBandWidths.add(rowCounter);
 						}
-						System.out.println("colWidthN: \t" + rowCounter);
+						
 						rowCounter=1;
 					}	
-			}		
+			}
+			if(rowCounter > 1){
+				rowBandWidths.add(rowCounter);
+			}
 		}
 		// Estimate row height 
 		for(int j=0; j<imageColumns; j++){
 			int colCounter=1; //Count number of adjacent signal pixels in each row
-			
 			for(int i=0; i<imageRows-1; i++){
 				
 					if(matrix[i][j]==1 && matrix[i][j] == matrix[i+1][j]){
@@ -335,111 +320,116 @@ public class IntensityProcessor {
 						if(colCounter > 1){
 							colBandHeights.add(colCounter);
 						}
-						System.out.println("rowHeightN: \t" + colCounter);
+						//System.out.println("rowHeightN: \t" + colCounter);
 						colCounter=1;
 					}	
-			}		
+			}
+			if(colCounter > 1){
+				colBandHeights.add(colCounter);
+			}
 		}
-		int[] meanBand = new int[2];
-		int sumW=0;
-		for(int w:rowBandWidths){
-			sumW=sumW+w;
-			
-//			System.out.println("bandW:" + w);
-		}
+		if(colBandHeights.size()==0 || rowBandWidths.size()==0) throw new Exception ("No signal detected in this image");
+		/*
+		Calculate average
+		
 		int sumH=0;
 		for(int h:colBandHeights){
 			sumH=sumH+h;
-	
-//			System.out.println("bandH:" + h);
 		}
-		meanBand[1]=sumW/rowBandWidths.size();
-		meanBand[0]=sumH/colBandHeights.size();
+		answer[1]=sumW/rowBandWidths.size();
+		answer[0]=sumH/colBandHeights.size();
+		*/
+		//Calculate signal statistics
+		Collections.sort(rowBandWidths);
+		int medianW = rowBandWidths.get(rowBandWidths.size()/2);
+		double sumW = 0;
+		double sumW2 = 0;
+		for(int w:rowBandWidths){
+			sumW = sumW+w;
+			sumW2 = sumW2 + w*w;
+		}
+		double nW = rowBandWidths.size();
+		double meanW = sumW/nW;
+		double varianceW = 0;
+		if(nW>1) varianceW = (sumW2-sumW*sumW/nW)/(nW-1);
+		System.out.println("Width statistics. Median: "+medianW+" Mean: "+meanW+" Variance: "+varianceW);
 		
-		return meanBand;
-}
-
-	private void createWell(int colFirst, int colLast) {
-        Well well = new Well(0,colFirst,imageRows,colLast-colFirst+1,wells.size());
-        wells.add(well);
+		typicalBandWidth = medianW;
+		Collections.sort(colBandHeights);
+		int medianH = colBandHeights.get(colBandHeights.size()/2);
+		double sumH = 0;
+		double sumH2 = 0;
+		for(int h:colBandHeights){
+			sumH = sumH+h;
+			sumH2 = sumH2 + h*h;
+		}
+		double nH = colBandHeights.size();
+		double meanH = sumH/nH;
+		double varianceH = 0;
+		if(nH>1) varianceH = (sumH2-sumH*sumH/nH)/(nH-1);
+		System.out.println("Height statistics. Median: "+medianH+" Mean: "+meanH+" Variance: "+varianceH);
+		typicalBandHeight = medianH;
+		//minimum band width
+		if(imageColumns>500 && typicalBandWidth<20) { 
+			typicalBandWidth=20;
+		} else if (typicalBandWidth < 10 ){
+			typicalBandWidth=10;
+		}
+		System.out.println("Estimated band width: " + typicalBandWidth + "\t height: " + typicalBandHeight );
+	}
+	
+	/**
+	 * Corrects the image intensities having typical band dimensions already calculated
+	 */
+	private void correctImage() {
+		// TODO Auto-generated method stub
+		backgroundDistribution.getMean();
+		for(int i=0; i<imageRows; i++){
+			correctRow(i);
+		}
 	}
 
-	public void predictWellsAlgorithm1() {
-		List<Double> colScores = calculateColumnScores(intensitiesMatrix);
-		double avg = 0;
-		for(int i=0;i<colScores.size();i++) avg+=colScores.get(i);
-		avg/=colScores.size();
-		Integer nextS = null;
-		for(int i=0;i<colScores.size();i++) {
-			if(colScores.get(i)>avg) {
-				if(nextS==null) nextS = i;
-			} else if (nextS!=null) {
-				if(i-nextS>10) {
-					createWell(nextS, i-1);
+	private void correctRow(int i) {
+		int k = 0;
+		int intensityDifference = (int) Math.round(signalDistribution.getMean()-backgroundDistribution.getMean());
+		for(int j=0; j<imageColumns; j++){
+			if(binarySignalMatrix[i][j]==0) {
+				int d = j-k;
+				if(d>0 && d<5) {
+					// Correct small signal, probably noise
+					for(int l=k;l<j;l++) intensitiesMatrix[i][l]= 0; 
+				} else if(d>2*typicalBandWidth) {
+					// Reduce intensity of very long regions
+					for(int l=k;l<j;l++) {
+						intensitiesMatrix[i][l]= Math.max(0, intensitiesMatrix[i][l]-intensityDifference); 
+					}
 				}
-				nextS = null;
+				k=j+1;
 			}
 		}
-		if(nextS !=null) createWell(nextS, colScores.size()-1);
 	}
-	
-	public void predictBandsHMM(Well well, HMM hmm, int cumulativeBands) {
-		List<Double> rowScores = calculateRowScores(well);
-		//for(int i=0; i<rowScores.size(); i++){
-			//System.out.println("wellID: " + wellID + "row "+i+" : \t"+rowScores.get(i));
-		//}
-		double [][] posteriors = new double [rowScores.size()][2];
-		hmm.calculatePosteriors(rowScores, posteriors);
 
-    	int nextRowStart = -1;
-    	int wellRowStart = well.getStartRow();
-    	int k=cumulativeBands;
-    	for(int n=0;n<rowScores.size();n++){
-    		if(posteriors[n][1]>0.99){
-    			if(nextRowStart==-1) nextRowStart=wellRowStart+n;
-    		} else if (nextRowStart>=0) {
-    			createBand(well, nextRowStart,wellRowStart+n-1,k);
-    			k++;
-    			nextRowStart = -1;
-    		}
-    	}
-    	if (nextRowStart>=0) {
-			createBand(well, nextRowStart,wellRowStart+rowScores.size()-1,k);
-    	}
-	}
 	/**
 	 * Creates bands according to hmm binary signal observations 
 	 * @param typicalBand int array contain int [0]:windowHeight; [1]: windowWidth
 	 * @param threshold double minimum fraction of signal in sliding window to create a band
 	 */
-	private void predictBandsSlidingWindow(int typicalBand [], double threshold){
-		int windowH=typicalBand[0];
-		int windowW=typicalBand[1];
-		//TODO 
-		if(windowW<20){ //minimum band width
-			if(imageColumns>500){
-				windowW=20;
-			}
-			else{
-				windowW=10;
-			}
-		}
-		System.out.println("meanBandWidth: " + windowW + "\t meanBandHeight: " + windowH );
-		int totPixels=windowH*windowW;
+	private void predictBandsSlidingWindow(double threshold) {
+		int totPixels=typicalBandHeight*typicalBandWidth;
 		double ones = 0;
 		double twos = 0;
 		int count = 0;
 		
-		for(int i=0; i<imageRows-windowH; i++){ //start loop along all signal matrix
-			for(int j=0; j<imageColumns-windowW; j++){
+		for(int i=0; i<imageRows-typicalBandHeight; i++){ //start loop along all signal matrix
+			for(int j=0; j<imageColumns-typicalBandWidth; j++){
 				
-				if(observationsMatrix[i][j] == 1){ // check if pixel is signal
-					for(int y=0; y<windowH; y++){ //opens window
-						for(int x=0; x<windowW;x++){
-							if(observationsMatrix[i+y][j+x] == 1){
+				if(binarySignalMatrix[i][j] == 1){ // check if pixel is signal
+					for(int y=0; y<typicalBandHeight; y++){ //opens window
+						for(int x=0; x<typicalBandWidth;x++){
+							if(binarySignalMatrix[i+y][j+x] == 1){
 								ones++;
 							}
-							else if(observationsMatrix[i+y][j+x] == 2){
+							else if(binarySignalMatrix[i+y][j+x] == 2){
 								twos++;
 								break;
 							}
@@ -451,12 +441,12 @@ public class IntensityProcessor {
 				if(twos == 0){
 					if(ones/totPixels >= threshold){
 						count++;
-						Band band = new Band(i, i+windowH-1, j, j+windowW-1, count);
+						Band band = new Band(i, i+typicalBandHeight-1, j, j+typicalBandWidth-1, count);
 						bands.add(band);
-						for(int y=0; y<windowH; y++){ //update observation matrix
-							for(int x=0; x<windowW; x++){
-								if(observationsMatrix[i+y][j+x] == 1){
-									observationsMatrix[i+y][j+x] = 2;
+						for(int y=0; y<typicalBandHeight; y++){ //update observation matrix
+							for(int x=0; x<typicalBandWidth; x++){
+								if(binarySignalMatrix[i+y][j+x] == 1){
+									binarySignalMatrix[i+y][j+x] = 2;
 								}
 							}
 						}
@@ -470,12 +460,11 @@ public class IntensityProcessor {
 		
 	}
 	
-	public void createWellsKmeans(){
-		int bWidth = typicalBandDimensions[1];
+	public void createWellsKmeans() {
 		//int lowKvalue = (int)Math.round(imageColumns/(2*bWidth));
 		int lowKvalue = 1;
 		System.out.println("lowK: " + lowKvalue);
-		int highKvalue = (int)Math.round(imageColumns/bWidth);
+		int highKvalue = (int)Math.round(imageColumns/typicalBandWidth);
 		System.out.println("highK: " + highKvalue);
 		
 		double[] var = new double[highKvalue-lowKvalue];
@@ -485,7 +474,7 @@ public class IntensityProcessor {
 			kmeansK.clusterWells();
 			var[i-lowKvalue]=kmeansK.getVariance();
 
-			System.out.println("K: " + i + "\t logSE: " + Math.log10(var[i-lowKvalue]));
+			//System.out.println("K: " + i + "\t logSE: " + Math.log10(var[i-lowKvalue]));
 		}
 		
 		double[] deltaVar = new double[var.length];
@@ -559,30 +548,6 @@ public class IntensityProcessor {
 		
 	}
 	
-	private void createBand(Well well, int firstRow, int lastRow, int id) {
-		Band band = new Band(firstRow,lastRow,well.getStartCol(),well.getStartCol()+well.getWellWidth(), id);
-		band.setWellID(well.getWellID());
-		well.addBand(band);
-		bands.add(band);
-	}
-	
-
-	private List<Double> calculateRowScores(Well well){
-		//Calculates the maximum average value in each row of the well
-		List<Double> rowScores=new ArrayList<>();
-		int endRow = well.getStartRow()+well.getWellHeight();
-		int endCol = well.getStartCol()+well.getWellWidth();
-		for(int i=well.getStartRow();i<endRow;i++){
-			List<Double> rowIntensities = new ArrayList<>();
-			for(int j=well.getStartCol();j<endCol;j++){
-				rowIntensities.add(intensitiesMatrix[i][j]);
-			}
-			Collections.sort(rowIntensities);
-			rowScores.add(rowIntensities.get(well.getWellWidth()/2));
-		}
-		return rowScores;	
-	}
-	
 	public void saveResults(String outputFilePrefix) throws IOException {
 		String outputFile = outputFilePrefix+"_tree.nwk";
 		try (PrintStream out = new PrintStream(outputFile)) {
@@ -636,7 +601,7 @@ public class IntensityProcessor {
 		bands.add(band);
 		
 	}
-	public void clusterBands() {
+	public void createWellsBandClusters() {
 		
 		//STEP 1: Identify wells
 		wells = new ArrayList<>();
@@ -666,10 +631,10 @@ public class IntensityProcessor {
 					//open window
 					for(int y=startR; y<endR+1; y++){ //opens window
 						for(int x=startC; x<endC+1;x++){
-							if(observationsMatrix[y][x] == 1){
+							if(binarySignalMatrix[y][x] == 1){
 								ones++;
 							}
-							else if(observationsMatrix[y][x] == 2){
+							else if(binarySignalMatrix[y][x] == 2){
 								twos++;
 								break;
 							}
@@ -683,8 +648,8 @@ public class IntensityProcessor {
 							newBands.add(newBand);
 							for(int y=startR; y<endR+1; y++){ //update observation matrix
 								for(int x=startC; x<endC+1; x++){
-									if(observationsMatrix[y][x] == 1){
-										observationsMatrix[y][x] = 2;
+									if(binarySignalMatrix[y][x] == 1){
+										binarySignalMatrix[y][x] = 2;
 									}
 								}
 							}

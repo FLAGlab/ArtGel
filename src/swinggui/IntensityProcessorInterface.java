@@ -27,6 +27,7 @@ import java.util.List;
 
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
+import javax.swing.JOptionPane;
 
 import Geles.IntensityProcessor;
 import Geles.Well;
@@ -70,13 +71,20 @@ public class IntensityProcessorInterface extends JFrame {
 	}
 
 	public void calculate() {
-		processor.processImage();
+		try {
+			processor.processImage();
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			JOptionPane.showMessageDialog(this, e.getMessage());
+			return;
+		}
 		List<Band> bands = processor.getBands();
 		imagePanel.paintBands(bands);
 		List<Well> wells = processor.getWells();
 		imagePanel.paintWells(wells);
-		wellIdsPanel.repaintWellIds(wells,processor.getImage().getWidth());
-		wellIdsPanel.setVisible(true);
+		//wellIdsPanel.repaintWellIds(wells,processor.getImage().getWidth());
+		//wellIdsPanel.setVisible(true);
 		
 		
 		
@@ -117,7 +125,7 @@ public class IntensityProcessorInterface extends JFrame {
 	}
 
 	public void clusterBands() {
-		processor.clusterBands();
+		processor.createWellsBandClusters();
 		processor.clusterAlleles();
 		List<Band> bands = processor.getBands();
 		imagePanel.paintBands(bands);
