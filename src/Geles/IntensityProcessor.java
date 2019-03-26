@@ -133,6 +133,8 @@ public class IntensityProcessor {
 	public void processImage() throws Exception {
 		wells = new ArrayList<>();
 		bands = new ArrayList<>();
+		bandLocationsMatrix = new boolean[imageRows][imageColumns];
+		for(int i=0;i<imageRows;i++) Arrays.fill(bandLocationsMatrix[i], false);
 		int correctionRounds = 1;
 		for(int i=0;i<=correctionRounds;i++) {
 			// STEP 1: Predict distributions of background and signal combined in the image
@@ -156,7 +158,7 @@ public class IntensityProcessor {
     	
     	//predictBands(2, 0.95);
     	
-    	predictBands(3, 0.5);
+    	predictBands(0,imageColumns, typicalBandHeight, 3, 0.5);
     	
     	if(bands.size()==0) throw new Exception ("No bands were found");
     	
@@ -164,19 +166,18 @@ public class IntensityProcessor {
     	createWells();
     	
     	// STEP 7: Identify missing bands from registered alleles
-    	//discoverMissingBands(0.7);
+    	discoverMissingBands(0.7);
     	
     	// STEP 8: Identify missing bands small size
-    	//bandSize = typicalBandDimensions;
-    	//bandSize[0] = bandSize[0] / 2;
-    	//signalThreshold = 0.8;
-    	//predictBandsSlidingWindow(bandSize, signalThreshold);
+    	for(Well well:wells) {
+    		predictBands(well.getStartCol(), well.getStartCol()+well.getWellWidth(), Math.max(5, typicalBandHeight/2), 3, 0.5);
+    	}
     	
     	// STEP 7: Identify missing bands from registered alleles
-    	//discoverMissingBands(0.6);
+    	discoverMissingBands(0.6);
     	
     	// STEP 6: Identify wells performing vertical clustering of bands
-    	//createWells();
+    	createWells();
     	
     	// STEP 9: Cluster alleles and samples
     	clusterAlleles();
@@ -419,36 +420,36 @@ public class IntensityProcessor {
 	 * Creates bands according to hmm binary signal observations 
 	 * @param threshold double minimum fraction of signal in sliding window to create a band
 	 */
-	public void predictBands(int method, double threshold) {
-		bandLocationsMatrix = new boolean[imageRows][imageColumns];
-		for(int i=0;i<imageRows;i++) Arrays.fill(bandLocationsMatrix[i], false);
+	public void predictBands(int startColumn, int endColumn, int bandHeight, int method, double threshold) {
+		
+		
 		List<PixelWithRealValue> pixels = new ArrayList<>();
 		double averageValue = 0;
 		int numValues = 0;
 		Distribution distLogFold = new Distribution(0, 2000, 100);
-		for(int i=0; i<imageRows-typicalBandHeight; i++){ //start loop along all signal matrix
-			for(int j=0; j<imageColumns-typicalBandWidth; j++){
+		for(int i=0; i<imageRows-bandHeight; i++){ //start loop along all signal matrix
+			for(int j=startColumn; j<endColumn-typicalBandWidth; j++){
 				if(method == 1) {
 					if(!binarySignalMatrix[i][j]) continue;
-					double proportion = calculateProportionSignalRegion (i,i+typicalBandHeight,j,j+typicalBandWidth);
+					double proportion = calculateProportionSignalRegion (i,i+bandHeight,j,j+typicalBandWidth);
 					pixels.add(new PixelWithRealValue(i, j, proportion));
 					averageValue+=proportion;
 					numValues++;
 				} else if (method == 2) {
-					double avgPostRegion = calculateProbabilityAverageSignalMixtureModel(i,i+typicalBandHeight,j,j+typicalBandWidth);
+					double avgPostRegion = calculateProbabilityAverageSignalMixtureModel(i,i+bandHeight,j,j+typicalBandWidth);
 					pixels.add(new PixelWithRealValue(i, j, avgPostRegion));
 					averageValue+=avgPostRegion;
 					numValues++;
 				} else if (method == 3) {
-					double proportion = calculateProportionSignalRegion (i,i+typicalBandHeight,j,j+typicalBandWidth);
+					double proportion = calculateProportionSignalRegion (i,i+bandHeight,j,j+typicalBandWidth);
 					if(proportion < threshold) continue;
-					double logCondChange = calculateLogFoldChangeMixtureModel (i,i+typicalBandHeight,j,j+typicalBandWidth);
+					double logCondChange = calculateLogFoldChangeMixtureModel (i,i+bandHeight,j,j+typicalBandWidth);
 					distLogFold.processDatapoint(logCondChange);
 					pixels.add(new PixelWithRealValue(i, j, logCondChange));
 					averageValue+=logCondChange;
 					numValues++;
 				} else if (method == 4) {
-					Double logPostRegion = calculateHMMLogPosteriorRegion (i,i+typicalBandHeight,j,j+typicalBandWidth);
+					Double logPostRegion = calculateHMMLogPosteriorRegion (i,i+bandHeight,j,j+typicalBandWidth);
 					if(logPostRegion==null) continue;
 					pixels.add(new PixelWithRealValue(i, j, LogMath.power10(logPostRegion)));
 					averageValue+=logPostRegion;
@@ -459,14 +460,14 @@ public class IntensityProcessor {
 		}
 		Collections.sort(pixels);
 		if(method == 3) {
-			distLogFold.printDistributionInt(System.out);
+			//distLogFold.printDistributionInt(System.out);
 			threshold = averageValue / numValues;
-			System.out.println("Average log fold: "+threshold);
+			//System.out.println("Average log fold: "+threshold);
 		}
 		for(PixelWithRealValue pixel:pixels) {
 			int i = pixel.getRow();
 			int j = pixel.getColumn();
-			if(pixel.getValue()>threshold) addBandWithinRegion(i, i+typicalBandHeight, j, j+typicalBandWidth);
+			if(pixel.getValue()>threshold) addBandWithinRegion(i, i+bandHeight, j, j+typicalBandWidth);
 		}
 	}
 
