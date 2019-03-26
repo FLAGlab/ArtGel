@@ -81,6 +81,9 @@ public class IntensityProcessor {
 	
 
 	private double [][] samplesDistanceMatrix;
+	
+	private SampleClusteringAlgorithm sampleClustering;
+	
     private double Pstart_signal=0.05;
     private double Ptransition=0.05;
     
@@ -643,8 +646,8 @@ public class IntensityProcessor {
 
 	public void clusterSamples() {
 		//STEP 6: Cluster samples (Wells)
-        //SampleClusteringAlgorithm sampleClustering = new DiceSampleClustering();
-        SampleClusteringAlgorithm sampleClustering = new PosteriorMeanMixtureModelSampleClustering();
+        //sampleClustering = new DiceSampleClustering();
+        sampleClustering = new PosteriorMeanMixtureModelSampleClustering();
         samplesDistanceMatrix=sampleClustering.clusterSamples(this);
 	}
 	public void saveResults(String outputFilePrefix) throws IOException {
@@ -663,7 +666,7 @@ public class IntensityProcessor {
 		int n = sampleIds.size();
 		try (PrintStream out = new PrintStream(outputFileMatrix)) {
 			out.println(n);
-			for(int i=0; i<n; i++){
+			for(int i=0; i<n; i++) {
 				out.print(sampleIds.get(i));
 				for(int j=0; j<n; j++){
 					out.print(" "+samplesDistanceMatrix[i][j]);
@@ -671,6 +674,7 @@ public class IntensityProcessor {
 				out.println();
 			}
 		}
+		sampleClustering.saveClusteringData(outputFilePrefix);
 	}
 	
 	public void saveBinSignal(int[][] binarySignalMatrix){

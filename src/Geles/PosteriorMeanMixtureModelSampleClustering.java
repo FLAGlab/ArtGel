@@ -1,24 +1,30 @@
 package Geles;
 
 import java.io.IOException;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import ngsep.genome.GenomicRegionPositionComparator;
 import ngsep.math.PhredScoreHelper;
 import ngsep.variants.CalledGenomicVariant;
 import ngsep.variants.CalledGenomicVariantImpl;
 import ngsep.variants.GenomicVariant;
 import ngsep.variants.GenomicVariantImpl;
 import ngsep.vcf.VCFFileHeader;
+import ngsep.vcf.VCFFileWriter;
 import ngsep.vcf.VCFRecord;
 
 public class PosteriorMeanMixtureModelSampleClustering implements SampleClusteringAlgorithm {
 
+	private VCFFileHeader header;
 	private List<VCFRecord> records;
 	private List<String> alleles;
+	private short minQuality = 1;
 	
 	public PosteriorMeanMixtureModelSampleClustering() {
 		alleles = new ArrayList<>();
@@ -29,7 +35,7 @@ public class PosteriorMeanMixtureModelSampleClustering implements SampleClusteri
 	public double [][] clusterSamples(IntensityProcessor processor) {
 		records = new ArrayList<>();
 		List<Well> wells = processor.getWells();
-		VCFFileHeader header = VCFFileHeader.makeDefaultEmptyHeader();
+		header = VCFFileHeader.makeDefaultEmptyHeader();
 		for(Well well:wells) {
 			header.addDefaultSample(well.getSampleId());
 		}
@@ -56,6 +62,7 @@ public class PosteriorMeanMixtureModelSampleClustering implements SampleClusteri
 			updateDistances(record.getCalls(), distanceMatrix, callsPerDatapoint);
 			records.add(record);
 		}
+		Collections.sort(records, GenomicRegionPositionComparator.getInstance());
 		for(int i=0;i<n;i++) {
 			for(int j=0;j<n;j++) {
 				if(callsPerDatapoint[i][j]>0) distanceMatrix[i][j]/=callsPerDatapoint[i][j];
@@ -96,7 +103,7 @@ public class PosteriorMeanMixtureModelSampleClustering implements SampleClusteri
 				int startRow = Math.max(0, first - halfRowSize);
 				int endRow = Math.min(processor.getIntensities().length, first + halfRowSize);
 				double prob = processor.calculateProbabilityAverageSignalMixtureModel(startRow, endRow, well.getStartCol(), well.getStartCol()+well.getWellWidth());
-				call.setGenotypeQuality(PhredScoreHelper.calculatePhredScore(1-prob));
+				call.setGenotypeQuality(PhredScoreHelper.calculatePhredScore(prob));
 				calls.set(i, call);
 			}
 		}
@@ -113,11 +120,11 @@ public class PosteriorMeanMixtureModelSampleClustering implements SampleClusteri
 		int n = calls.size();
 		for(int j=0;j<n;j++){
 			CalledGenomicVariant call1 = calls.get(j);
-			if(call1.isUndecided() || call1.getGenotypeQuality()<20) continue;
+			if(call1.isUndecided() || call1.getGenotypeQuality()<minQuality) continue;
     		for(int k=0;k<n;k++){
     			if(j==k) continue;
     			CalledGenomicVariant call2 = calls.get(k);
-    			if(call2.isUndecided() || call2.getGenotypeQuality()<20) continue;
+    			if(call2.isUndecided() || call2.getGenotypeQuality()<minQuality) continue;
     			//distance between pair of genotypes for a single variant
 			    distanceMatrix[j][k] += Math.abs(call1.getIndexesCalledAlleles()[0]-call2.getIndexesCalledAlleles()[0]);
 				//matrix needed to save value by how divide
@@ -127,7 +134,11 @@ public class PosteriorMeanMixtureModelSampleClustering implements SampleClusteri
 	}
 	@Override
 	public void saveClusteringData(String outputFilePrefix) throws IOException {
-		// TODO Auto-generated method stub
+		VCFFileWriter writer = new VCFFileWriter();
+		try (PrintStream out = new PrintStream(outputFilePrefix+".vcf")) {
+			writer.printHeader(header, out);
+			writer.printVCFRecords(records, out);
+		}
 		
 	}
 	
