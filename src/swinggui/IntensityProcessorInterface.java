@@ -63,8 +63,10 @@ public class IntensityProcessorInterface extends JFrame {
 		int answer = jfc.showOpenDialog(this);
 		if(answer != JFileChooser.APPROVE_OPTION) return;
 		try {
-			processor.loadImage(jfc.getSelectedFile().getAbsolutePath());
+			File f = jfc.getSelectedFile();
+			processor.loadImage(f.getAbsolutePath());
 			imagePanel.loadImage(processor.getImage());
+			setTitle(f.getName());
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
