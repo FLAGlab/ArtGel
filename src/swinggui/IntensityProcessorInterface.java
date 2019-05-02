@@ -21,6 +21,7 @@ package swinggui;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.awt.GridLayout;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
@@ -28,6 +29,8 @@ import java.util.List;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
+import javax.swing.JScrollPane;
+import javax.swing.ScrollPaneLayout;
 
 import Geles.IntensityProcessor;
 import Geles.Well;
@@ -39,12 +42,17 @@ public class IntensityProcessorInterface extends JFrame {
 	private RulerPanel rulerPanel;
 	private ImagePanel imagePanel;
 	private ButtonsPanel buttonsPanel;
+	private JScrollPane scrollPane;
 	private IntensityProcessor processor;
 	public IntensityProcessorInterface () {
 		processor = new IntensityProcessor();
 		setSize(new Dimension(800, 600));
 		setDefaultCloseOperation(EXIT_ON_CLOSE);
-		setLayout(new BorderLayout());
+		//setResizable(false);
+		BorderLayout layout = new BorderLayout();
+		layout.setHgap(10);
+		layout.setVgap(10);
+		setLayout(layout);
 		wellIdsPanel = new WellIdsPanel();
 		add(wellIdsPanel, BorderLayout.NORTH);
 		wellIdsPanel.setVisible(false);
@@ -52,7 +60,11 @@ public class IntensityProcessorInterface extends JFrame {
 		add(rulerPanel, BorderLayout.EAST);
 		rulerPanel.setVisible(false);
 		imagePanel = new ImagePanel(this);
-		add (imagePanel, BorderLayout.CENTER);
+		scrollPane = new JScrollPane(imagePanel);
+		scrollPane.setPreferredSize(new Dimension( 600,300));
+		scrollPane.setLayout(new ScrollPaneLayout());
+		scrollPane.setViewportView(imagePanel);
+		add (scrollPane, BorderLayout.CENTER);
 		buttonsPanel = new ButtonsPanel(this);
 		add(buttonsPanel, BorderLayout.SOUTH);
 	}

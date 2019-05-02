@@ -21,6 +21,7 @@ package swinggui;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
+import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.event.MouseEvent;
@@ -60,6 +61,7 @@ public class ImagePanel extends JPanel implements MouseListener {
 		bandColors.add(new Color(100, 255, 100));
 		bandColors.add(new Color(100, 100, 255));
 		addMouseListener(this);
+		//loadImage(new BufferedImage(1000,1000,BufferedImage.TYPE_BYTE_BINARY));
 	}
 
 	public void loadImage(BufferedImage image) {
@@ -95,12 +97,8 @@ public class ImagePanel extends JPanel implements MouseListener {
 		return bandToCreate;
 	}
 
-	/* (non-Javadoc)
-	 * @see javax.swing.JComponent#paint(java.awt.Graphics)
-	 */
-	@Override
-	public void paint(Graphics g) {
-		super.paint(g);
+	protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
 		Graphics2D g2D = (Graphics2D) g;
 		if(image!=null) {
 			g2D.drawImage(image, 0, 0, null);
@@ -187,6 +185,11 @@ public class ImagePanel extends JPanel implements MouseListener {
 		bandToCreate = new Band(rowNewBand, row, columnNewBand, column, 0);
 		repaint();
 	}
+	
+	@Override
+    public Dimension getPreferredSize() {
+        return new Dimension(2000, 2000);
+    }
 	
 	
 }
