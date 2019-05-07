@@ -77,11 +77,14 @@ public class IntensityProcessorInterface extends JFrame {
 		try {
 			File f = jfc.getSelectedFile();
 			processor.loadImage(f.getAbsolutePath());
-			imagePanel.loadImage(processor.getImage());
 			setTitle(f.getName());
 		} catch (IOException e) {
 			e.printStackTrace();
+			return;
 		}
+		imagePanel.loadImage(processor.getImage());
+		repaint();
+		
 	}
 
 	public void calculate() {

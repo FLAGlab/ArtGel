@@ -188,7 +188,8 @@ public class ImagePanel extends JPanel implements MouseListener {
 	
 	@Override
     public Dimension getPreferredSize() {
-        return new Dimension(2000, 2000);
+		if(image==null) return new Dimension(300, 300);
+		return new Dimension(image.getWidth(), image.getHeight());
     }
 	
 	
