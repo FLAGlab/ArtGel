@@ -31,7 +31,6 @@ public class ButtonsPanel extends JPanel implements ActionListener {
 	private static final String ACTION_LOAD = "Load";
 	private static final String ACTION_CALCULATE = "Calculate";
 	private static final String ACTION_CLUSTER = "Cluster";
-	private static final String ACTION_WELLIDS = "Change well ids";
 	private static final String ACTION_SAVE = "Save";
 	private static final String ACTION_DELETE_BAND = "Delete";
 	private static final String ACTION_ADD_BAND = "Add";
@@ -40,7 +39,6 @@ public class ButtonsPanel extends JPanel implements ActionListener {
 	private JButton butLoad = new JButton("Load");
 	private JButton butCalculate = new JButton("Calculate");
 	private JButton butCluster = new JButton("Cluster");
-	private JButton butChangeWellIds = new JButton("Change well Ids");
 	private JButton butSave = new JButton("Save");
 	
 	private JButton butAddBand = new JButton("Add");
@@ -50,7 +48,7 @@ public class ButtonsPanel extends JPanel implements ActionListener {
 	
 	public ButtonsPanel(IntensityProcessorInterface parent) {
 		this.parent = parent;
-		setLayout(new GridLayout(2, 5, 5, 5));
+		setLayout(new GridLayout(2, 4, 5, 5));
 		butLoad.setActionCommand(ACTION_LOAD);
 		butLoad.addActionListener(this);
 		add(butLoad);
@@ -62,10 +60,6 @@ public class ButtonsPanel extends JPanel implements ActionListener {
 		butCluster.setActionCommand(ACTION_CLUSTER);
 		butCluster.addActionListener(this);
 		add(butCluster);
-		
-		butChangeWellIds.setActionCommand(ACTION_WELLIDS);
-		butChangeWellIds.addActionListener(this);
-		add(butChangeWellIds);
 		
 		butSave.setActionCommand(ACTION_SAVE);
 		butSave.addActionListener(this);
@@ -95,9 +89,6 @@ public class ButtonsPanel extends JPanel implements ActionListener {
 		}
 		if(command.equals(ACTION_CLUSTER)) {
 			parent.clusterBands();
-		}
-		if(command.equals(ACTION_WELLIDS)) {
-			parent.changeWellIds();
 		}
 		if(command.equals(ACTION_SAVE)) {
 			parent.save();

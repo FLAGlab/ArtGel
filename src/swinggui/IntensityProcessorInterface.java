@@ -55,11 +55,11 @@ public class IntensityProcessorInterface extends JFrame {
 		layout.setHgap(10);
 		layout.setVgap(10);
 		setLayout(layout);
-		wellIdsPanel = new LabelIdsPanel();
+		wellIdsPanel = new LabelIdsPanel(this,"Wells");
 		//wellIdsPanel.setPreferredSize(new Dimension(200, 300));
 		add(wellIdsPanel, BorderLayout.EAST);
 		wellIdsPanel.setVisible(false);
-		rulerPanel = new LabelIdsPanel();
+		rulerPanel = new LabelIdsPanel(this,"Ruler");
 		add(rulerPanel, BorderLayout.WEST);
 		rulerPanel.setVisible(false);
 		imagePanel = new ImagePanel(this);
@@ -105,6 +105,8 @@ public class IntensityProcessorInterface extends JFrame {
 		List<Band> bands = processor.getBands();
 		imagePanel.updateImage(processor.getModifiedImage(), bands);
 		repaintWellIds();
+		rulerPanel.repaintDefaultIds(processor.getNumClusters());
+		rulerPanel.setVisible(true);
 	}
 	
 	private void repaintWellIds() {
@@ -123,6 +125,8 @@ public class IntensityProcessorInterface extends JFrame {
 		List<Band> bands = processor.getBands();
 		imagePanel.updateImage(processor.getModifiedImage(), bands);
 		repaintWellIds();
+		rulerPanel.repaintDefaultIds(processor.getNumClusters());
+		rulerPanel.setVisible(true);
 	}
 	
 	public void save() {
@@ -162,7 +166,10 @@ public class IntensityProcessorInterface extends JFrame {
 		imagePanel.updateImage(processor.getModifiedImage(), bands);
 	}
 
-	
+	public void changeIds(String panelId) {
+		if("Wells".equals(panelId)) changeWellIds();
+		else changeRuler();
+	}
 
 	public void changeWellIds() {
 		List<Well> wells = processor.getWells();
@@ -172,13 +179,23 @@ public class IntensityProcessorInterface extends JFrame {
 		}
 		ChangeValuesDialog dialog = new ChangeValuesDialog(this, wells.size(), oldIds, false);
 		dialog.setVisible(true);
-		System.out.println("Test");
 		if(dialog.isConfirmed()) {
 			System.out.println("Changing well ids: "+dialog.getValues());
 			processor.setWellSampleIds(dialog.getValues());
 		}
 		repaintWellIds();
 	}
+
+	public void changeRuler() {
+		int clusters = processor.getNumClusters();
+		ChangeValuesDialog dialog = new ChangeValuesDialog(this, clusters, new ArrayList<>(), true);
+		dialog.setVisible(true);
+		if(dialog.isConfirmed()) {
+			rulerPanel.repaintIds(dialog.getValues());
+		}
+		
+	}
+	
 
 	
 
