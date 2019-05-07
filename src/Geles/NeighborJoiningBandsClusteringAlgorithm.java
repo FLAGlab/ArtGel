@@ -27,7 +27,7 @@ import ngsep.variants.Sample;
 public class NeighborJoiningBandsClusteringAlgorithm implements BandsClusteringAlgorithm {
 
 	@Override
-	public int clusterBands(List<Band> bands) {
+	public List<List<Band>> clusterBands(List<Band> bands) {
 		double [][] distances = Band.calculateEuclideanDistances(bands);
 		List<Sample> bandSamples = new ArrayList<Sample>();
         for(int i=0; i<bands.size(); i++){
@@ -40,7 +40,7 @@ public class NeighborJoiningBandsClusteringAlgorithm implements BandsClusteringA
 		Dendrogram njTree = njDendogram.constructNJTree();
 		njTree.printTree(System.out);
 		*/
-        return -1;
+        return new ArrayList<>();
 	}
 
 }

@@ -19,6 +19,8 @@
  *******************************************************************************/
 package Geles;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import ngsep.graphs.CliquesFinder;
@@ -28,41 +30,61 @@ import ngsep.graphs.CliquesFinder;
  * @author Cindy Ulloa, Hector Ruiz, Jorge Duitama
  */
 public class HeuristicCliqueBandClusteringAlgorithm implements BandsClusteringAlgorithm {
-
+	private int maxDistanceConsistent = 10;
 	@Override
-	public int clusterBands(List<Band> bands) {
+	public List<List<Band>> clusterBands(List<Band> bands) {
+		List<List<Band>> answer = new ArrayList<>();
 		double [][] distances = Band.calculateEuclideanDistances(bands);
 		boolean[][] consistencyMatrix=calculateConsistencyMatrix(distances);
         List<List<Integer>> cliques = CliquesFinder.findCliques(consistencyMatrix);
-        int c=0;
+        boolean [] inCluster = new boolean[bands.size()];
+        Arrays.fill(inCluster, false);
         for(List<Integer> group:cliques) {
-        	for(Integer band:group){
-        		bands.get(band).setAlleleClusterId(c);
+        	List<Band> cluster = new ArrayList<>(group.size());
+        	for(Integer i:group){
+        		inCluster[i]= true;
+        		cluster.add(bands.get(i));
         	}
-        	c++;
+        	answer.add(cluster);
         }
         
         //Look for unclustered bands
-        for(Band b:bands){
-        	if(b.getAlleleClusterId()==-1){
-        		b.setAlleleClusterId(c);
-        		c++;
+        for(int i=0;i<inCluster.length;i++){
+        	if(!inCluster[i]){
+        		List<Band> single = new ArrayList<>(1);
+        		single.add(bands.get(i));
+        		answer.add(single);
         	}
         }
-        return c;
+        return answer;
 	}
 	
 	private boolean[][] calculateConsistencyMatrix(double [][] distances){
-		int threshold = 10;
-		boolean [][] consistencyMatrix = new boolean [distances.length][distances[0].length];
 		
+		boolean [][] consistencyMatrix = new boolean [distances.length][distances[0].length];
 		for(int i=0; i<consistencyMatrix.length;i++){
 			for(int j=0;j<consistencyMatrix[0].length;j++) {
-				consistencyMatrix[i][j] = (distances[i][j]<threshold);
+				consistencyMatrix[i][j] = (distances[i][j]<=maxDistanceConsistent);
 			}
 		}
 		return consistencyMatrix;
 	}
+
+	/**
+	 * @return the maxDistanceConsistent
+	 */
+	public int getMaxDistanceConsistent() {
+		return maxDistanceConsistent;
+	}
+
+	/**
+	 * @param maxDistanceConsistent the maxDistanceConsistent to set
+	 */
+	public void setMaxDistanceConsistent(int maxDistanceConsistent) {
+		this.maxDistanceConsistent = maxDistanceConsistent;
+	}
+	
+	
 
 	
 

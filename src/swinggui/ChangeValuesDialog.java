@@ -13,7 +13,7 @@ import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 
-public class ChangeRulerDialog extends JDialog implements ActionListener {
+public class ChangeValuesDialog extends JDialog implements ActionListener {
 	private static final String ACTION_CONFIRM = "Confirm";
 	private static final String ACTION_CANCEL = "Cancel";
 	private static final String ACTION_CALCULATE = "Calculate";
@@ -25,20 +25,22 @@ public class ChangeRulerDialog extends JDialog implements ActionListener {
 	private JButton btnCalculate;
 	private JButton btnConfirm;
 	private JButton btnCancel;
+	private boolean confirmed = false;
 	
-	public ChangeRulerDialog (IntensityProcessorInterface parent, int numBands) {
+	public ChangeValuesDialog (IntensityProcessorInterface parent, int numIds, List<String> oldIds, boolean calculate) {
 		this.parent = parent;
 		setLayout(new BorderLayout());
 		//setDefaultCloseOperation();
-		JPanel rulerPanel = new JPanel();
-		rulerPanel.setLayout(new GridLayout(numBands, 1));
-		for(int i=0;i<numBands;i++) {
+		JPanel idsPanel = new JPanel();
+		idsPanel.setLayout(new GridLayout(numIds, 1));
+		for(int i=0;i<numIds;i++) {
 			JTextField text = new JTextField();
+			if(i<oldIds.size()) text.setText(oldIds.get(i));
 			textFields.add(text);
-			rulerPanel.add(text);
+			idsPanel.add(text);
 		}
 		
-		add(rulerPanel,BorderLayout.CENTER);
+		add(idsPanel,BorderLayout.CENTER);
 		
 		JPanel calculatePanel = new JPanel();
 		calculatePanel.setLayout(new GridLayout(1, 3));
@@ -48,6 +50,7 @@ public class ChangeRulerDialog extends JDialog implements ActionListener {
 		btnCalculate.setActionCommand(ACTION_CALCULATE);
 		btnCalculate.addActionListener(this);
 		calculatePanel.add(btnCalculate);
+		calculatePanel.setVisible(calculate);
 		
 		JPanel proceedPanel = new JPanel();
 		proceedPanel.setLayout(new GridLayout(1, 2));
@@ -68,7 +71,8 @@ public class ChangeRulerDialog extends JDialog implements ActionListener {
 		
 		add(southPanel,BorderLayout.SOUTH);
 		
-		setTitle( "Change ruler" );
+		setTitle( "Change ids" );
+		setModal( true );
         pack( );
         //setResizable( false );
         setDefaultCloseOperation( DISPOSE_ON_CLOSE );
@@ -80,11 +84,13 @@ public class ChangeRulerDialog extends JDialog implements ActionListener {
 			calculateRulerValues();
 		}
 		if(ACTION_CONFIRM.equals(command)) {
-			parent.setRulerValues(getRulerValues());
+			confirmed = true;
+			System.out.println("Action to change values");
 			setVisible(false);
 			dispose();
 		}
 		if(ACTION_CANCEL.equals(command)) {
+			confirmed = false;
 			setVisible(false);
 			dispose();
 		}
@@ -94,10 +100,17 @@ public class ChangeRulerDialog extends JDialog implements ActionListener {
 		// TODO Auto-generated method stub
 		
 	}
-	private List<String> getRulerValues() {
+	
+	/**
+	 * @return the confirmed
+	 */
+	public boolean isConfirmed() {
+		return confirmed;
+	}
+	public List<String> getValues() {
 		List<String> values = new ArrayList<>();
 		for(JTextField text:textFields ) {
-			values.add(text.getText());
+			values.add(text.getText().trim());
 		}
 		return values;
 	}

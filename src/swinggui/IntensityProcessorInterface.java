@@ -24,6 +24,7 @@ import java.awt.Dimension;
 import java.awt.GridLayout;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.JFileChooser;
@@ -39,8 +40,8 @@ import Geles.Band;
 
 public class IntensityProcessorInterface extends JFrame {
 
-	private WellIdsPanel wellIdsPanel;
-	private RulerPanel rulerPanel;
+	private LabelIdsPanel wellIdsPanel;
+	private LabelIdsPanel rulerPanel;
 	private ImagePanel imagePanel;
 	private ButtonsPanel buttonsPanel;
 	private JScrollPane scrollPane;
@@ -54,11 +55,11 @@ public class IntensityProcessorInterface extends JFrame {
 		layout.setHgap(10);
 		layout.setVgap(10);
 		setLayout(layout);
-		wellIdsPanel = new WellIdsPanel();
+		wellIdsPanel = new LabelIdsPanel();
 		//wellIdsPanel.setPreferredSize(new Dimension(200, 300));
 		add(wellIdsPanel, BorderLayout.EAST);
 		wellIdsPanel.setVisible(false);
-		rulerPanel = new RulerPanel();
+		rulerPanel = new LabelIdsPanel();
 		add(rulerPanel, BorderLayout.WEST);
 		rulerPanel.setVisible(false);
 		imagePanel = new ImagePanel(this);
@@ -88,6 +89,8 @@ public class IntensityProcessorInterface extends JFrame {
 		imagePanel.loadImage(processor.getImage());
 		scrollPane.setViewportView(imagePanel);
 		scrollPane.repaint();
+		wellIdsPanel.setVisible(false);
+		rulerPanel.setVisible(false);
 	}
 
 	public void calculate() {
@@ -101,18 +104,25 @@ public class IntensityProcessorInterface extends JFrame {
 		}
 		List<Band> bands = processor.getBands();
 		imagePanel.updateImage(processor.getModifiedImage(), bands);
-		List<Well> wells = processor.getWells();
-		wellIdsPanel.repaintWellIds(wells);
-		wellIdsPanel.setVisible(true);
+		repaintWellIds();
 	}
 	
+	private void repaintWellIds() {
+		List<Well> wells = processor.getWells();
+		List<String> ids = new ArrayList<>();
+		for(Well well:wells) {
+			ids.add(well.getSampleId());
+		}
+		wellIdsPanel.repaintIds(ids);
+		wellIdsPanel.setVisible(true);
+	}
+
 	public void clusterBands() {
 		processor.createWells();
 		processor.clusterAlleles();
 		List<Band> bands = processor.getBands();
 		imagePanel.updateImage(processor.getModifiedImage(), bands);
-		List<Well> wells = processor.getWells();
-		wellIdsPanel.repaintWellIds(wells);
+		repaintWellIds();
 	}
 	
 	public void save() {
@@ -120,7 +130,7 @@ public class IntensityProcessorInterface extends JFrame {
 		int answer = jfc.showSaveDialog(this);
 		if(answer != JFileChooser.APPROVE_OPTION) return;
 		try {
-			processor.setWellSampleIds (wellIdsPanel.getWellIds());
+			processor.setWellSampleIds (wellIdsPanel.getIds());
 			processor.clusterSamples();
 			processor.saveResults(jfc.getSelectedFile().getAbsolutePath());
 		} catch (IOException e) {
@@ -145,7 +155,6 @@ public class IntensityProcessorInterface extends JFrame {
 	}
 
 	public void addBand() {
-		// TODO Auto-generated method stub
 		Band toCreate = imagePanel.getBandToCreate();
 		if(toCreate == null) return;
 		processor.addBand(toCreate);
@@ -155,10 +164,20 @@ public class IntensityProcessorInterface extends JFrame {
 
 	
 
-	public void setRulerValues(List<String> rulerValues) {
-		// TODO Auto-generated method stub
-		rulerPanel.repaintRuler(rulerValues, processor.getImage().getHeight());
-		rulerPanel.setVisible(true);
+	public void changeWellIds() {
+		List<Well> wells = processor.getWells();
+		List<String> oldIds = new ArrayList<>();
+		for(Well well:wells) {
+			oldIds.add(well.getSampleId());
+		}
+		ChangeValuesDialog dialog = new ChangeValuesDialog(this, wells.size(), oldIds, false);
+		dialog.setVisible(true);
+		System.out.println("Test");
+		if(dialog.isConfirmed()) {
+			System.out.println("Changing well ids: "+dialog.getValues());
+			processor.setWellSampleIds(dialog.getValues());
+		}
+		repaintWellIds();
 	}
 
 	

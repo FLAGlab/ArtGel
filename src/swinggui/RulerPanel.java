@@ -1,5 +1,6 @@
 package swinggui;
 
+import java.awt.Dimension;
 import java.awt.GridLayout;
 import java.util.ArrayList;
 import java.util.List;
@@ -22,6 +23,7 @@ public class RulerPanel extends JPanel {
 		rulerValues.clear();
 		int n = values.size();
 		int textHeight = imageHeight/n;
+		this.setPreferredSize(new Dimension(100, 40*(n+1)));
 		System.out.println("Image height: "+imageHeight+" values: "+n+" textWidth: "+textHeight);
 		this.setLayout(new GridLayout(n, 1));
 		for(int i=0;i<n;i++) {

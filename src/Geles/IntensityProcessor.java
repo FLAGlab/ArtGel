@@ -38,6 +38,7 @@ import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 import javax.imageio.ImageIO;
@@ -655,9 +656,30 @@ public class IntensityProcessor {
 		//STEP : Cluster bands looking for variant alleles
     	for (Band b:bands) b.setAlleleClusterId(-1);
         BandsClusteringAlgorithm bandsClustering = new HeuristicCliqueBandClusteringAlgorithm();
-        numClusters = bandsClustering.clusterBands(bands);
+        List<List<Band>> alleleClusters = bandsClustering.clusterBands(bands);
+        Collections.sort(alleleClusters,new Comparator<List<Band>>() {
+
+			@Override
+			public int compare(List<Band> l1, List<Band> l2) {
+				double average1=getAverageRow(l1);
+				double average2=getAverageRow(l2);
+				if(average1<average2)return -1;
+				else if(average1>average2)return 1;
+				return 0;
+			}
+
+			private double getAverageRow(List<Band> list) {
+				double avg = 0;
+				for(Band b:list) avg+=b.getMiddleRow();
+				return avg/list.size();
+			}
+		});
+        numClusters = alleleClusters.size();
         System.out.println("Total clusters: "+numClusters);
-        
+        for(int i=0;i<numClusters;i++) {
+        	List<Band> cluster = alleleClusters.get(i);
+        	for(Band b:cluster) b.setAlleleClusterId(i+1);
+        }
 	}
 
 	public void clusterSamples() {
