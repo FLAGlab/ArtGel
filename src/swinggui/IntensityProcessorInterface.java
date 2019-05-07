@@ -100,12 +100,21 @@ public class IntensityProcessorInterface extends JFrame {
 			return;
 		}
 		List<Band> bands = processor.getBands();
-		imagePanel.paintBands(bands);
+		imagePanel.updateImage(processor.getModifiedImage(), bands);
 		List<Well> wells = processor.getWells();
-		imagePanel.paintWells(wells);
 		wellIdsPanel.repaintWellIds(wells);
 		wellIdsPanel.setVisible(true);
 	}
+	
+	public void clusterBands() {
+		processor.createWells();
+		processor.clusterAlleles();
+		List<Band> bands = processor.getBands();
+		imagePanel.updateImage(processor.getModifiedImage(), bands);
+		List<Well> wells = processor.getWells();
+		wellIdsPanel.repaintWellIds(wells);
+	}
+	
 	public void save() {
 		JFileChooser jfc = new JFileChooser();
 		int answer = jfc.showSaveDialog(this);
@@ -131,7 +140,7 @@ public class IntensityProcessorInterface extends JFrame {
 		if(selected == null) return;
 		processor.deleteBand(selected);
 		List<Band> bands = processor.getBands();
-		imagePanel.paintBands(bands);
+		imagePanel.updateImage(processor.getModifiedImage(), bands);
 		
 	}
 
@@ -141,17 +150,10 @@ public class IntensityProcessorInterface extends JFrame {
 		if(toCreate == null) return;
 		processor.addBand(toCreate);
 		List<Band> bands = processor.getBands();
-		imagePanel.paintBands(bands);
+		imagePanel.updateImage(processor.getModifiedImage(), bands);
 	}
 
-	public void clusterBands() {
-		processor.createWells();
-		processor.clusterAlleles();
-		List<Band> bands = processor.getBands();
-		imagePanel.paintBands(bands);
-		List<Well> wells = processor.getWells();
-		imagePanel.paintWells(wells);
-	}
+	
 
 	public void setRulerValues(List<String> rulerValues) {
 		// TODO Auto-generated method stub

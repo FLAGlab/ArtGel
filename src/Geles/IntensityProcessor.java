@@ -27,7 +27,9 @@ import ngsep.hmm.HMM;
 import ngsep.math.Distribution;
 import ngsep.math.LogMath;
 
+import java.awt.BasicStroke;
 import java.awt.Color;
+import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -75,6 +77,7 @@ public class IntensityProcessor {
 	
 	private List<Well> wells = new ArrayList<>();
 	private List<Band> bands = new ArrayList<>();
+	private static List<Color> bandColors = new ArrayList<>();
 	
 	private int numClusters;
 	
@@ -99,6 +102,18 @@ public class IntensityProcessor {
 
 	}
 	
+	static {
+		bandColors.add(Color.RED);
+		bandColors.add(Color.CYAN);
+		bandColors.add(Color.YELLOW);
+		bandColors.add(Color.GREEN);
+		bandColors.add(Color.MAGENTA);
+		bandColors.add(Color.ORANGE);
+		bandColors.add(Color.PINK);
+		bandColors.add(new Color(255, 100, 100));
+		bandColors.add(new Color(100, 255, 100));
+		bandColors.add(new Color(100, 100, 255));
+	}
 	public void loadImage(String inputFile) throws IOException {
 		image = ImageIO.read( new File (inputFile) );
 
@@ -658,7 +673,40 @@ public class IntensityProcessor {
 			wells.get(i).setSampleId(wellIds.get(i));
 		}
 	}
+	public BufferedImage getModifiedImage () {
+		BufferedImage answer = new BufferedImage(imageColumns, imageRows, BufferedImage.TYPE_INT_RGB);
+		for( int i = 0; i < imageRows; i++ )
+        {
+            for( int j = 0; j < imageColumns; j++ )
+            {
+            	int grayIntensity = (int)Math.round(intensitiesMatrix[i][j]);
+                answer.setRGB( j, i, new Color(grayIntensity,grayIntensity,grayIntensity).getRGB() );
+            }
+        }
+		Graphics2D g2DImage = (Graphics2D) answer.createGraphics();
+		g2DImage.setStroke(new BasicStroke(2));
+		for(Band band: bands) {
+			int alleleCluster = band.getAlleleClusterId();
+			if(alleleCluster>=0) {
+				g2DImage.setColor(bandColors.get(alleleCluster%10));
+				g2DImage.drawString(""+alleleCluster, band.getMiddleColumn(), band.getMiddleRow());
+			} else {
+				g2DImage.setColor(Color.RED);
+			}
+			
+			g2DImage.drawRect(band.getStartColumn(), band.getStartRow(), band.getEndColumn()-band.getStartColumn(), band.getEndRow()-band.getStartRow());
+		}
+		
+		for(Well well:wells) {
+			g2DImage.setColor(Color.WHITE);
+			g2DImage.drawRect(well.getStartCol(), well.getStartRow(), well.getWellWidth(), well.getWellHeight());
+		}
+        return answer;
+	}
 	public void saveResults(String outputFilePrefix) throws IOException {
+		File outFileImage = new File(outputFilePrefix+"_image.png");
+		ImageIO.write(getModifiedImage(), "png", outFileImage);
+		
 		String outputFileDendrogam = outputFilePrefix+"_tree.nwk";
 		List<String> sampleIds = new ArrayList<>();
 		for(Well well:wells) sampleIds.add(well.getSampleId());

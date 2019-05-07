@@ -48,7 +48,7 @@ public class ButtonsPanel extends JPanel implements ActionListener {
 	
 	public ButtonsPanel(IntensityProcessorInterface parent) {
 		this.parent = parent;
-		setLayout(new GridLayout(2, 4));
+		setLayout(new GridLayout(2, 4, 5, 5));
 		butLoad.setActionCommand(ACTION_LOAD);
 		butLoad.addActionListener(this);
 		add(butLoad);

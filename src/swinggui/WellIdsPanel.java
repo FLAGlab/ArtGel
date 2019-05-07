@@ -21,6 +21,7 @@ public class WellIdsPanel extends JPanel {
 	public void repaintWellIds (List<Well> wells) {
 		List<String> oldIds = getWellIds();
 		this.removeAll();
+		wellIds.clear();
 		int n = wells.size();
 		this.setPreferredSize(new Dimension(200, 40*(n+1)));
 		this.setLayout(new GridLayout(n+1,2,5,5));

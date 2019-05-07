@@ -38,9 +38,7 @@ import Geles.Well;
 public class ImagePanel extends JPanel implements MouseListener {
 	private IntensityProcessorInterface parent;
 	private BufferedImage image;
-	private List<Well> wells =new ArrayList<>();
 	private List<Band> bands = new ArrayList<>();
-	private List<Color> bandColors = new ArrayList<>();
 	private Band selectedBand = null;
 	
 	private int rowNewBand = 0;
@@ -50,16 +48,7 @@ public class ImagePanel extends JPanel implements MouseListener {
 	
 	public ImagePanel (IntensityProcessorInterface parent) {
 		this.parent = parent;
-		bandColors.add(Color.RED);
-		bandColors.add(Color.CYAN);
-		bandColors.add(Color.YELLOW);
-		bandColors.add(Color.GREEN);
-		bandColors.add(Color.MAGENTA);
-		bandColors.add(Color.ORANGE);
-		bandColors.add(Color.PINK);
-		bandColors.add(new Color(255, 100, 100));
-		bandColors.add(new Color(100, 255, 100));
-		bandColors.add(new Color(100, 100, 255));
+		
 		addMouseListener(this);
 		//loadImage(new BufferedImage(1000,1000,BufferedImage.TYPE_BYTE_BINARY));
 	}
@@ -67,16 +56,11 @@ public class ImagePanel extends JPanel implements MouseListener {
 	public void loadImage(BufferedImage image) {
 		this.image = image;
 		bands =new ArrayList<>();
-		wells =new ArrayList<>();
 		repaint();
-		
 	}
 
-	public void paintWells(List<Well> wells) {
-		this.wells = wells;
-		repaint();
-	}
-	public void paintBands(List<Band> bands){
+	public void updateImage(BufferedImage image, List<Band> bands){
+		this.image = image;
 		this.bands = bands;
 		selectedBand = null;
 		bandToCreate = null;
@@ -99,46 +83,16 @@ public class ImagePanel extends JPanel implements MouseListener {
 
 	protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-		Graphics2D g2D = (Graphics2D) g;
-		if(image!=null) {
-			g2D.drawImage(image, 0, 0, null);
-		}
-		
-		g2D.setStroke(new BasicStroke(2));
-		for(Band band: bands) {
-			int alleleCluster = band.getAlleleClusterId();
-			if(alleleCluster>=0) {
-				g2D.setColor(bandColors.get(alleleCluster%10));
-				g2D.drawString(""+alleleCluster, band.getMiddleColumn(), band.getMiddleRow());
-			} else {
-				g2D.setColor(Color.RED);
-			}
-			
-			g2D.drawRect(band.getStartColumn(), band.getStartRow(), band.getEndColumn()-band.getStartColumn(), band.getEndRow()-band.getStartRow());
-			if(band==selectedBand) g2D.fillRect(band.getStartColumn(), band.getStartRow(), band.getEndColumn()-band.getStartColumn(), band.getEndRow()-band.getStartRow());
-		}
-		
-		for(Well well:wells) {
-			g2D.setColor(Color.WHITE);
-			g2D.drawRect(well.getStartCol(), well.getStartRow(), well.getWellWidth(), well.getWellHeight());
-			
-//			for(Band band: well.getBands()) {
-//				int alleleCluster = band.getAlleleClusterId();
-//				if(alleleCluster>=0) {
-//					alleleCluster %=10;
-//					g2D.setColor(bandColors.get(alleleCluster));
-//				} else {
-//					g2D.setColor(Color.WHITE);
-//				}
-//				
-//				g2D.drawRect(well.getStartCol(), band.getStartRow(), well.getWellWidth(), band.getEndRow()-band.getStartRow());
-//			}
-		}
+        if(image==null) return;
+        Graphics2D g2DPanel = (Graphics2D) g;
+		g2DPanel.drawImage(image, 0, 0, null);
+        if(selectedBand!=null) g2DPanel.fillRect(selectedBand.getStartColumn(), selectedBand.getStartRow(), selectedBand.getEndColumn()-selectedBand.getStartColumn(), selectedBand.getEndRow()-selectedBand.getStartRow());
 		if (bandToCreate!=null) {
-			g2D.setColor(Color.WHITE);
+			g2DPanel.setColor(Color.WHITE);
 			Band band = bandToCreate;
-			g2D.drawRect(band.getStartColumn(), band.getStartRow(), band.getEndColumn()-band.getStartColumn(), band.getEndRow()-band.getStartRow());
+			g2DPanel.drawRect(band.getStartColumn(), band.getStartRow(), band.getEndColumn()-band.getStartColumn(), band.getEndRow()-band.getStartRow());
 		}
+		
 	}
 
 	@Override
