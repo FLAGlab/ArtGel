@@ -31,6 +31,7 @@ import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JScrollPane;
 import javax.swing.ScrollPaneLayout;
+import javax.swing.UIManager;
 
 import Geles.IntensityProcessor;
 import Geles.Well;
@@ -54,14 +55,15 @@ public class IntensityProcessorInterface extends JFrame {
 		layout.setVgap(10);
 		setLayout(layout);
 		wellIdsPanel = new WellIdsPanel();
-		add(wellIdsPanel, BorderLayout.NORTH);
+		//wellIdsPanel.setPreferredSize(new Dimension(200, 300));
+		add(wellIdsPanel, BorderLayout.EAST);
 		wellIdsPanel.setVisible(false);
 		rulerPanel = new RulerPanel();
-		add(rulerPanel, BorderLayout.EAST);
+		add(rulerPanel, BorderLayout.WEST);
 		rulerPanel.setVisible(false);
 		imagePanel = new ImagePanel(this);
 		scrollPane = new JScrollPane(imagePanel);
-		scrollPane.setPreferredSize(new Dimension( 600,300));
+		scrollPane.setPreferredSize(new Dimension( 400,300));
 		scrollPane.setLayout(new ScrollPaneLayout());
 		scrollPane.setViewportView(imagePanel);
 		add (scrollPane, BorderLayout.CENTER);
@@ -82,9 +84,10 @@ public class IntensityProcessorInterface extends JFrame {
 			e.printStackTrace();
 			return;
 		}
-		imagePanel.loadImage(processor.getImage());
-		repaint();
 		
+		imagePanel.loadImage(processor.getImage());
+		scrollPane.setViewportView(imagePanel);
+		scrollPane.repaint();
 	}
 
 	public void calculate() {
@@ -100,17 +103,15 @@ public class IntensityProcessorInterface extends JFrame {
 		imagePanel.paintBands(bands);
 		List<Well> wells = processor.getWells();
 		imagePanel.paintWells(wells);
-		//wellIdsPanel.repaintWellIds(wells,processor.getImage().getWidth());
-		//wellIdsPanel.setVisible(true);
-		
-		
-		
+		wellIdsPanel.repaintWellIds(wells);
+		wellIdsPanel.setVisible(true);
 	}
 	public void save() {
 		JFileChooser jfc = new JFileChooser();
 		int answer = jfc.showSaveDialog(this);
 		if(answer != JFileChooser.APPROVE_OPTION) return;
 		try {
+			processor.setWellSampleIds (wellIdsPanel.getWellIds());
 			processor.clusterSamples();
 			processor.saveResults(jfc.getSelectedFile().getAbsolutePath());
 		} catch (IOException e) {
@@ -118,7 +119,8 @@ public class IntensityProcessorInterface extends JFrame {
 		}
 	}
 	
-	public static void main(String[] args) {
+	public static void main(String[] args) throws Exception {
+		UIManager.setLookAndFeel( UIManager.getCrossPlatformLookAndFeelClassName( ) );
 		IntensityProcessorInterface frame = new IntensityProcessorInterface();
 		frame.setVisible(true);
 

@@ -651,6 +651,13 @@ public class IntensityProcessor {
         sampleClustering = new PosteriorMeanMixtureModelSampleClustering();
         samplesDistanceMatrix=sampleClustering.clusterSamples(this);
 	}
+	
+	public void setWellSampleIds(List<String> wellIds) {
+		if(wellIds.size()!=wells.size()) throw new IllegalArgumentException("Inconsistent size of well ids. Expected: "+wells.size()+" given: "+wellIds.size());
+		for(int i=0;i<wellIds.size();i++) {
+			wells.get(i).setSampleId(wellIds.get(i));
+		}
+	}
 	public void saveResults(String outputFilePrefix) throws IOException {
 		String outputFileDendrogam = outputFilePrefix+"_tree.nwk";
 		List<String> sampleIds = new ArrayList<>();
@@ -728,7 +735,9 @@ public class IntensityProcessor {
 		Band band = new Band(bandCoordinates.getStartRow(), bandCoordinates.getEndRow(), bandCoordinates.getStartColumn(), bandCoordinates.getEndColumn(), bands.size());
 		bands.add(band);
 		
-	}	
+	}
+
+		
 }
 class PixelWithRealValue implements Comparable<PixelWithRealValue> {
 	private int row;

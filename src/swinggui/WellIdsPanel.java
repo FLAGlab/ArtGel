@@ -1,9 +1,11 @@
 package swinggui;
 
+import java.awt.Dimension;
 import java.awt.GridLayout;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 
@@ -16,17 +18,21 @@ public class WellIdsPanel extends JPanel {
 		
 	}
 	
-	public void repaintWellIds (List<Well> wells, int imageWidth) {
+	public void repaintWellIds (List<Well> wells) {
 		List<String> oldIds = getWellIds();
 		this.removeAll();
 		int n = wells.size();
-		int textWidth = imageWidth/n;
-		System.out.println("Image width: "+imageWidth+" wells: "+n+" textWidth: "+textWidth);
-		this.setLayout(new GridLayout(1, n));
+		this.setPreferredSize(new Dimension(200, 40*(n+1)));
+		this.setLayout(new GridLayout(n+1,2,5,5));
+		add(new JLabel("Well number"));
+		add(new JLabel("Sample id"));
 		for(int i=0;i<n;i++) {
+			JLabel labWellId = new JLabel(""+(i+1));
+			add(labWellId);
 			JTextField text = new JTextField();
-			text.setSize(textWidth, 30);
+			text.setSize(200, 30);
 			if(i<oldIds.size()) text.setText(oldIds.get(i));
+			wellIds.add(text);
 			add(text);
 		}
 		updateUI();
@@ -35,7 +41,9 @@ public class WellIdsPanel extends JPanel {
 	public List<String> getWellIds() {
 		List<String> answer = new ArrayList<>();
 		for(JTextField text:wellIds) {
-			answer.add(text.getText());
+			String nextId = text.getText().trim();
+			if(nextId.length()==0) nextId = ""+(answer.size()+1);
+			answer.add(nextId);
 		}
 		return answer;
 	}
