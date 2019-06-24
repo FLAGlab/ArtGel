@@ -5,9 +5,7 @@ import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import ngsep.genome.GenomicRegionPositionComparator;
 import ngsep.math.PhredScoreHelper;
@@ -39,17 +37,7 @@ public class PosteriorMeanMixtureModelSampleClustering implements SampleClusteri
 		for(Well well:wells) {
 			header.addDefaultSample(well.getSampleId());
 		}
-		List<Band> bands = processor.getBands();
-		Map<Integer,List<Band>> alleleClustersMap = new HashMap<>();
-		for(Band b:bands) {
-			if(b.getAlleleClusterId()<0) continue; 
-			List<Band> clusterBands = alleleClustersMap.get(b.getAlleleClusterId());
-			if(clusterBands==null) {
-				clusterBands = new ArrayList<>();
-				alleleClustersMap.put(b.getAlleleClusterId(), clusterBands);
-			}
-			clusterBands.add(b);
-		}
+		List<AlleleBandCluster> alleleClusters = processor.getAlleleClusters();
 		int n = wells.size();
 		double [][] distanceMatrix = new double [n][n];
 		int [][] callsPerDatapoint = new int [n][n]; 
@@ -57,7 +45,7 @@ public class PosteriorMeanMixtureModelSampleClustering implements SampleClusteri
 			Arrays.fill(distanceMatrix[i], 0);
 			Arrays.fill(callsPerDatapoint[i], 0);
 		}
-		for(List<Band> cluster:alleleClustersMap.values()) {
+		for(AlleleBandCluster cluster:alleleClusters) {
 			VCFRecord record = buildVCFRecord(cluster, header, processor);
 			updateDistances(record.getCalls(), distanceMatrix, callsPerDatapoint);
 			records.add(record);
@@ -78,24 +66,25 @@ public class PosteriorMeanMixtureModelSampleClustering implements SampleClusteri
 	 * @param processor
 	 * @return VCFRecord
 	 */
-	private VCFRecord buildVCFRecord(List<Band> cluster, VCFFileHeader header, IntensityProcessor processor) {
+	private VCFRecord buildVCFRecord(AlleleBandCluster cluster, VCFFileHeader header, IntensityProcessor processor) {
 		List<Well> wells = processor.getWells();
 		List<String> sampleIds = header.getSampleIds();
 		int n = sampleIds.size();
 		List<CalledGenomicVariant> calls = new ArrayList<>(n);
 		for(int i=0;i<n;i++) calls.add(null);
-		int first = getHorizontalCentroid (cluster);
+		int first = cluster.getMolecularWeight();
 		GenomicVariant variant = new GenomicVariantImpl("Image", first, alleles);
 		double sumHeight = 0;
-		for(Band b:cluster) {
-			int sampleIdx = b.getWellID();
+		List<Band> bands = cluster.getBands();
+		for(Band b:bands) {
+			int sampleIdx = b.getWellPosition();
 			CalledGenomicVariant call = new CalledGenomicVariantImpl(variant, CalledGenomicVariant.GENOTYPE_HOMOALT);
 			double prob = processor.calculateProbabilityAverageSignalMixtureModel(b.getStartRow(), b.getEndRow(), b.getStartColumn(), b.getEndColumn());
 			call.setGenotypeQuality(PhredScoreHelper.calculatePhredScore(1-prob));
 			calls.set(sampleIdx, call);
 			sumHeight += b.calculateBandHeight();
 		}
-		int halfRowSize = (int) Math.round(sumHeight / (2.0*cluster.size()));
+		int halfRowSize = (int) Math.round(sumHeight / (2.0*bands.size()));
 		for(int i=0;i<n;i++) {
 			if(calls.get(i)==null) {
 				Well well = wells.get(i);
@@ -108,13 +97,6 @@ public class PosteriorMeanMixtureModelSampleClustering implements SampleClusteri
 			}
 		}
 		return new VCFRecord(variant, VCFRecord.DEF_FORMAT_ARRAY_QUALITY, calls, header);
-	}
-	private int getHorizontalCentroid(List<Band> cluster) {
-		double sumCentroid = 0;
-		for(Band b:cluster) {
-			sumCentroid += b.getMiddleRow();
-		}
-		return (int) Math.round(sumCentroid/cluster.size());
 	}
 	private void updateDistances(List<CalledGenomicVariant> calls, double[][] distanceMatrix, int[][] callsPerDatapoint) {
 		int n = calls.size();

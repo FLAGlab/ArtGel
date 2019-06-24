@@ -21,7 +21,6 @@ package swinggui;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
-import java.awt.GridLayout;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -36,6 +35,7 @@ import javax.swing.UIManager;
 
 import Geles.IntensityProcessor;
 import Geles.Well;
+import Geles.AlleleBandCluster;
 import Geles.Band;
 
 public class IntensityProcessorInterface extends JFrame {
@@ -105,8 +105,8 @@ public class IntensityProcessorInterface extends JFrame {
 		List<Band> bands = processor.getBands();
 		imagePanel.updateImage(processor.getModifiedImage(), bands);
 		repaintWellIds();
-		rulerPanel.repaintDefaultIds(processor.getNumClusters());
-		rulerPanel.setVisible(true);
+		//System.out.println("Final clusters: "+processor.getNumClusters());
+		repaintMolecularWeights();
 	}
 	
 	private void repaintWellIds() {
@@ -117,6 +117,16 @@ public class IntensityProcessorInterface extends JFrame {
 		}
 		wellIdsPanel.repaintIds(ids);
 		wellIdsPanel.setVisible(true);
+	}
+	
+	private void repaintMolecularWeights() {
+		List<AlleleBandCluster> clusters = processor.getAlleleClusters();
+		List<String> values = new ArrayList<>();
+		for(AlleleBandCluster cluster:clusters) {
+			values.add(""+cluster.getMolecularWeight());
+		}
+		rulerPanel.repaintIds(values);
+		rulerPanel.setVisible(true);
 	}
 
 	public void clusterBands() {
@@ -177,26 +187,31 @@ public class IntensityProcessorInterface extends JFrame {
 		for(Well well:wells) {
 			oldIds.add(well.getSampleId());
 		}
-		ChangeValuesDialog dialog = new ChangeValuesDialog(this, wells.size(), oldIds, false);
+		ChangeValuesDialog dialog = new ChangeValuesDialog(this, wells.size(), oldIds, "Change sample ids");
 		dialog.setVisible(true);
 		if(dialog.isConfirmed()) {
-			System.out.println("Changing well ids: "+dialog.getValues());
+			System.out.println("Changing sample ids: "+dialog.getValues());
 			processor.setWellSampleIds(dialog.getValues());
 		}
 		repaintWellIds();
 	}
 
 	public void changeRuler() {
-		int clusters = processor.getNumClusters();
-		ChangeValuesDialog dialog = new ChangeValuesDialog(this, clusters, new ArrayList<>(), true);
+		List<AlleleBandCluster> clusters = processor.getAlleleClusters();
+		List<String> oldValues = new ArrayList<>();
+		for(AlleleBandCluster cluster:clusters) {
+			oldValues.add(""+cluster.getMolecularWeight());
+		}
+		int n = processor.getNumClusters();
+		ChangeValuesDialog dialog = new ChangeValuesDialog(this, n, oldValues, "Change molecular weights");
 		dialog.setVisible(true);
 		if(dialog.isConfirmed()) {
-			rulerPanel.repaintIds(dialog.getValues());
+			List<Integer> molecularWeights = new ArrayList<>();
+			for(String value:dialog.getValues()) {
+				molecularWeights.add(Integer.parseInt(value));
+			}
+			processor.setMolecularWeights(molecularWeights);
 		}
-		
+		repaintMolecularWeights();
 	}
-	
-
-	
-
 }

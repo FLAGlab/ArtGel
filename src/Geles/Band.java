@@ -31,9 +31,8 @@ public class Band {
 	private int endRow;
 	private int startColumn;
 	private int endColumn;
-	private int wellID;
-	
-	private int alleleClusterId=-1;
+	private int wellPosition = -1;
+	private int alleleClusterPosition = -1;
 	
 	/**
 	 * Creates a new band object with the given information
@@ -48,21 +47,6 @@ public class Band {
 		this.startColumn=startColumn;
 		this.endColumn=endColumn;
 		this.bandID=id;
-	}
-	
-	/**
-	 * @return wellID The identifier of the corresponding well
-	 */
-	public int getWellID(){
-		return wellID;
-	}
-	
-	
-	/**
-	 * @param wellID the wellID to set
-	 */
-	public void setWellID(int wellID) {
-		this.wellID = wellID;
 	}
 
 	/**
@@ -107,19 +91,33 @@ public class Band {
 	}
 
 	/**
-	 * @return the alleleClusterId
+	 * @return the wellPosition
 	 */
-	public int getAlleleClusterId() {
-		return alleleClusterId;
+	public int getWellPosition() {
+		return wellPosition;
 	}
 
 	/**
-	 * @param alleleClusterId the alleleClusterId to set
+	 * @param wellPosition the wellPosition to set
 	 */
-	public void setAlleleClusterId(int alleleClusterId) {
-		this.alleleClusterId = alleleClusterId;
+	public void setWellPosition(int wellPosition) {
+		this.wellPosition = wellPosition;
 	}
-	
+
+	/**
+	 * @return the alleleClusterPosition
+	 */
+	public int getAlleleClusterPosition() {
+		return alleleClusterPosition;
+	}
+
+	/**
+	 * @param alleleClusterPosition the alleleClusterPosition to set
+	 */
+	public void setAlleleClusterPosition(int alleleClusterPosition) {
+		this.alleleClusterPosition = alleleClusterPosition;
+	}
+
 	public static double [][] calculateEuclideanDistances(List<Band> bands) {
 		int totalBands = bands.size();
 		double [][] euclideanDistances = new double[totalBands][totalBands];
@@ -130,7 +128,7 @@ public class Band {
         	for(int j=i+1; j<totalBands;j++){
         		Band b2 = bands.get(j);
         		double distance=1000;
-        		if(b1.getWellID()!=b2.getWellID()) {
+        		if(b1.getWellPosition()!=b2.getWellPosition()) {
         			double squareDifferenceSum = Math.pow(b1.getStartRow()-b2.getStartRow(), 2);
             		squareDifferenceSum+=Math.pow(b1.getEndRow()-b2.getEndRow(), 2);
             		distance=Math.sqrt(squareDifferenceSum);

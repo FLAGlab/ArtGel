@@ -20,7 +20,6 @@
 package Geles;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -29,40 +28,16 @@ public class DiceSampleClustering implements SampleClusteringAlgorithm {
 
 
 	@Override
-	/**
-	 * 
-	 */
 	public double [][] clusterSamples(IntensityProcessor processor) {
 		List<Well> wells = processor.getWells();
-		List<Band> bands= new ArrayList<>();
-		for(Well w:wells){
-			for(Band b:w.getBands()){
-				bands.add(b);
-			}
-		}
-        int numBandAlleleClusters = 0;
-        for(Band band:bands){
-        	if(numBandAlleleClusters<band.getAlleleClusterId()+1){
-        		numBandAlleleClusters=band.getAlleleClusterId()+1;
-        	}
-        }
-        int [][] binaryMatrix = new int [numBandAlleleClusters][wells.size()];
+		List<Band> bands= processor.getBands();
+        int [][] binaryMatrix = new int [processor.getNumClusters()][wells.size()];
 		for(int i=0;i<binaryMatrix.length;i++) Arrays.fill(binaryMatrix[i], 0);
 		
 		for(Band band:bands) {
-			binaryMatrix[band.getAlleleClusterId()][band.getWellID()]=1;
+			if(band.getAlleleClusterPosition()>=0 && band.getWellPosition()>=0)
+			binaryMatrix[band.getAlleleClusterPosition()][band.getWellPosition()]=1;
 		}
-			
-        //Print
-        /*
-		System.out.println("BinaryMatrix: ");
-        for(int i=0;i<binaryMatrix.length;i++){
-        	for(int j=0; j<binaryMatrix[0].length;j++){
-        		System.out.print(binaryMatrix[i][j] +" ");
-        	}
-        	System.out.println();
-        }*/
-        
         return calculateDiceDistance(binaryMatrix);
 	        
 		}

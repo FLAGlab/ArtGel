@@ -10,6 +10,7 @@ import java.util.List;
 import javax.swing.JButton;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 
@@ -27,13 +28,17 @@ public class ChangeValuesDialog extends JDialog implements ActionListener {
 	private JButton btnCancel;
 	private boolean confirmed = false;
 	
-	public ChangeValuesDialog (IntensityProcessorInterface parent, int numIds, List<String> oldIds, boolean calculate) {
+	public ChangeValuesDialog (IntensityProcessorInterface parent, int numIds, List<String> oldIds, String title) {
 		this.parent = parent;
+		setTitle(title);
 		setLayout(new BorderLayout());
+		add(new JLabel(title),BorderLayout.NORTH);
 		//setDefaultCloseOperation();
 		JPanel idsPanel = new JPanel();
-		idsPanel.setLayout(new GridLayout(numIds, 1));
+		idsPanel.setLayout(new GridLayout(numIds, 2));
 		for(int i=0;i<numIds;i++) {
+			JLabel label = new JLabel(""+(i+1));
+			idsPanel.add(label);
 			JTextField text = new JTextField();
 			if(i<oldIds.size()) text.setText(oldIds.get(i));
 			textFields.add(text);
@@ -42,6 +47,7 @@ public class ChangeValuesDialog extends JDialog implements ActionListener {
 		
 		add(idsPanel,BorderLayout.CENTER);
 		
+		//TODO: Implement calculation
 		JPanel calculatePanel = new JPanel();
 		calculatePanel.setLayout(new GridLayout(1, 3));
 		calculatePanel.add(textMinimum);
@@ -50,7 +56,7 @@ public class ChangeValuesDialog extends JDialog implements ActionListener {
 		btnCalculate.setActionCommand(ACTION_CALCULATE);
 		btnCalculate.addActionListener(this);
 		calculatePanel.add(btnCalculate);
-		calculatePanel.setVisible(calculate);
+		calculatePanel.setVisible(false);
 		
 		JPanel proceedPanel = new JPanel();
 		proceedPanel.setLayout(new GridLayout(1, 2));
@@ -71,7 +77,6 @@ public class ChangeValuesDialog extends JDialog implements ActionListener {
 		
 		add(southPanel,BorderLayout.SOUTH);
 		
-		setTitle( "Change ids" );
 		setModal( true );
         pack( );
         //setResizable( false );

@@ -132,10 +132,10 @@ public class KMeansWellPrediction {
 				}
 			}
 			Well well = new Well(0,colFirst, imageRows, colLast-colFirst+1, answer.size());
-			int wellID = well.getWellID();
+			int wellPos = well.getWellPosition();
 			for(Band b:cluster.getBands()){
 				//System.out.println("band#: " + b.getBandID());
-				b.setWellID(wellID);
+				b.setWellPosition(wellPos);
 				well.addBand(b);
 			}
 	        answer.add(well);

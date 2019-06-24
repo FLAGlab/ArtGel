@@ -28,7 +28,7 @@ import java.util.List;
  */
 public class Well {
 
-	private int wellID;
+	private int wellPosition;
 	private int startRow;
 	private int wellHeight;
 	private int startCol;
@@ -38,28 +38,23 @@ public class Well {
 	private List<Band> bands = new ArrayList<>();
 
 	
-	/**
-	 * Creates a new well object with the given information
-	 * @param wellHeight Row distance between well signal start and signal end
-	 * @param laneNumber Number of the lane corresponding to the well
-	 * @param filename txt file with intensity values in each well
-	 * @throws IOException 
-	 */
-	public Well(int startRow,int startCol, int height, int width, int wellID){
+	
+	public Well(int startRow,int startCol, int height, int width, int wellPosition){
 	
 		this.startRow=startRow;
 		this.startCol=startCol;
-		this.wellID=wellID;
-		wellHeight=height;
 		wellWidth=width;
-		sampleId = ""+wellID;
+		wellHeight=height;
+		this.wellPosition=wellPosition;
+		
+		sampleId = ""+(wellPosition+1);
 	}
 
 	/**
-	 * @return wellID The identifier of the well
+	 * @return int 0 based position of the well in the image
 	 */
-	public int getWellID(){
-		return wellID;
+	public int getWellPosition(){
+		return wellPosition;
 	}
 	
 	/**
@@ -97,8 +92,7 @@ public class Well {
 	 * @return nBands The number of bands in the well
 	 */
 	public int getNumberOfBands(){
-		int n=bands.size();
-		return n;
+		return bands.size();
 	}
 	
 	/**
@@ -108,8 +102,8 @@ public class Well {
 		return bands;
 	}
 
-	public void removeBand(Band selected) {
-		bands.remove(selected);
+	public void removeBand(Band band) {
+		bands.remove(band);
 	}
 
 	/**

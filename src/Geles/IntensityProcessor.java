@@ -76,14 +76,12 @@ public class IntensityProcessor {
 	private int typicalBandHeight;
 	private int typicalBandWidth;
 	
-	private List<Well> wells = new ArrayList<>();
 	private List<Band> bands = new ArrayList<>();
+	private List<Well> wells = new ArrayList<>();
+	private List<AlleleBandCluster> alleleClusters = new ArrayList<>();
+	
 	private static List<Color> bandColors = new ArrayList<>();
 	
-	private int numClusters;
-	
-	
-
 	private double [][] samplesDistanceMatrix;
 	
 	private SampleClusteringAlgorithm sampleClustering;
@@ -204,7 +202,7 @@ public class IntensityProcessor {
     	//Print for testing
     	System.out.println("");
     	System.out.println("Wells \t Bands \t Clusters");
-    	System.out.println(wells.size() + "\t" + bands.size() + "\t" + numClusters);
+    	System.out.println(wells.size() + "\t" + bands.size() + "\t" + alleleClusters.size());
     	
 //    	createWellsKmeans();
 //    	
@@ -568,7 +566,7 @@ public class IntensityProcessor {
 	private void discoverMissingBands(double threshold) {
 		List<Band> currentBands = new ArrayList<>(bands);
 		for(Band b:currentBands) {
-			int bandsWell = b.getWellID();
+			int bandWellPos = b.getWellPosition();
 			int startRow = b.getStartRow();
 			int endRow = b.getEndRow();
 			int endLastWell = 0;
@@ -581,7 +579,7 @@ public class IntensityProcessor {
 					addBandWithinRegion(startRow, endRow, j, j+typicalBandWidth);
 				}
 				int endColumn = startColumn + w.getWellWidth();	
-				if(w.getWellID() != bandsWell) {
+				if(w.getWellPosition() != bandWellPos) {
 					double proportion = calculateProportionSignalRegion (startRow,endRow,startColumn,startColumn+typicalBandWidth);
 					if(proportion < threshold) continue;
 					addBandWithinRegion(startRow, endRow, startColumn, startColumn+typicalBandWidth);
@@ -654,7 +652,7 @@ public class IntensityProcessor {
 	}
 	public void clusterAlleles(){
 		//STEP : Cluster bands looking for variant alleles
-    	for (Band b:bands) b.setAlleleClusterId(-1);
+    	for (Band b:bands) b.setAlleleClusterPosition(-1);
         BandsClusteringAlgorithm bandsClustering = new HeuristicCliqueBandClusteringAlgorithm();
         List<List<Band>> alleleClusters = bandsClustering.clusterBands(bands);
         Collections.sort(alleleClusters,new Comparator<List<Band>>() {
@@ -674,11 +672,11 @@ public class IntensityProcessor {
 				return avg/list.size();
 			}
 		});
-        numClusters = alleleClusters.size();
-        System.out.println("Total clusters: "+numClusters);
-        for(int i=0;i<numClusters;i++) {
+        this.alleleClusters = new ArrayList<>(alleleClusters.size());
+        for(int i=0;i<alleleClusters.size();i++) {
         	List<Band> cluster = alleleClusters.get(i);
-        	for(Band b:cluster) b.setAlleleClusterId(i+1);
+        	this.alleleClusters.add(new AlleleBandCluster(i, cluster));
+        	for(Band b:cluster) b.setAlleleClusterPosition(i);
         }
 	}
 
@@ -695,6 +693,13 @@ public class IntensityProcessor {
 			wells.get(i).setSampleId(wellIds.get(i));
 		}
 	}
+	
+	public void setMolecularWeights(List<Integer> molecularWeights) {
+		if(molecularWeights.size()!=alleleClusters.size()) throw new IllegalArgumentException("Inconsistent size of molecular weights. Expected: "+alleleClusters.size()+" given: "+molecularWeights.size());
+		for(int i=0;i<molecularWeights.size();i++) {
+			alleleClusters.get(i).setMolecularWeight(molecularWeights.get(i));
+		}
+	}
 	public BufferedImage getModifiedImage () {
 		BufferedImage answer = new BufferedImage(imageColumns, imageRows, BufferedImage.TYPE_INT_RGB);
 		for( int i = 0; i < imageRows; i++ )
@@ -708,10 +713,10 @@ public class IntensityProcessor {
 		Graphics2D g2DImage = (Graphics2D) answer.createGraphics();
 		g2DImage.setStroke(new BasicStroke(2));
 		for(Band band: bands) {
-			int alleleCluster = band.getAlleleClusterId();
-			if(alleleCluster>=0) {
-				g2DImage.setColor(bandColors.get(alleleCluster%10));
-				g2DImage.drawString(""+alleleCluster, band.getMiddleColumn(), band.getMiddleRow());
+			int alleleClusterPos = band.getAlleleClusterPosition();
+			if(alleleClusterPos>=0) {
+				g2DImage.setColor(bandColors.get(alleleClusterPos%10));
+				g2DImage.drawString(""+(alleleClusterPos+1), band.getMiddleColumn(), band.getEndRow());
 			} else {
 				g2DImage.setColor(Color.RED);
 			}
@@ -785,20 +790,32 @@ public class IntensityProcessor {
 	public List<Band> getBands(){
 		return bands;
 	}
+	
+	/**
+	 * @return the alleleClusters
+	 */
+	public List<AlleleBandCluster> getAlleleClusters() {
+		return alleleClusters;
+	}
+
 	/**
 	 * @return the numClusters
 	 */
 	public int getNumClusters() {
-		return numClusters;
+		return alleleClusters.size();
 	}
 
 	public void deleteBand(Band selected) {
 		bands.remove(selected);
-		int wellId = selected.getWellID();
-		for(Well well:wells) {
-			if(well.getWellID()==wellId) {
-				well.removeBand(selected);
-			}
+		int wellPosition = selected.getWellPosition();
+		int alleleClusterPos = selected.getAlleleClusterPosition();
+		if(wellPosition>=0) {
+			Well well = wells.get(wellPosition);
+			well.removeBand(selected);
+		}
+		if(alleleClusterPos>=0) {
+			AlleleBandCluster cluster = alleleClusters.get(alleleClusterPos);
+			cluster.removeBand(selected);
 		}
 	}
 	public void addBand(Band bandCoordinates) {
@@ -806,6 +823,8 @@ public class IntensityProcessor {
 		bands.add(band);
 		
 	}
+
+	
 
 		
 }
