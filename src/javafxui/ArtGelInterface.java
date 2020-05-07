@@ -24,7 +24,7 @@ public class ArtGelInterface extends Application {
 		URL url = new File("src/javafxui/artgel_structure.fxml").toURI().toURL();
 		Parent root = FXMLLoader.load(url);
         stage.setTitle("ArtGel");
-        stage.setScene(new Scene(root, 800, 500));
+        stage.setScene(new Scene(root, 1300, 700));
         stage.show();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block

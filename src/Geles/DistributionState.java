@@ -27,14 +27,25 @@ import JSci.maths.statistics.*;
 
 public class DistributionState implements HMMState {
 	private String id;
-	private Double logP;
 	private double startProb;
 	private ProbabilityDistribution distribution;
+	private Double[] log10Values;
 
 	public DistributionState(String id, double startProb, ProbabilityDistribution distribution){
 		this.distribution = distribution;
 		this.startProb = startProb;
 		this.id = id;
+		double[] cumulativeValues = new double[256];
+		for(int i = 0; i<256;i++) {
+			cumulativeValues[i]= distribution.cumulative(i);
+		}
+		this.log10Values = new Double[256];
+		for(int i = 0; i<256;i++) {
+			double c1 =cumulativeValues[Math.max(0, i-2)];
+			double c2 =cumulativeValues[Math.min(255, i+2)];
+			log10Values[i] = LogMath.log10(c2-c1);
+			//logP=distribution.probability(intensityValue);
+		}
 	}
 	
 	/**
@@ -45,12 +56,8 @@ public class DistributionState implements HMMState {
 	 * Null if the probability is zero
 	 */
 	public Double getEmission(Object value, int step){
-		Double intensityValue=(Double)value;
-		Double c1= distribution.cumulative(intensityValue-2);
-		Double c2= distribution.cumulative(intensityValue+2);
-		logP = LogMath.log10(c2-c1);
-		//logP=distribution.probability(intensityValue);
-		return logP;
+		int intensityValue=(Integer)value;
+		return log10Values[intensityValue];
 	}
 	
 	

@@ -1,6 +1,7 @@
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.control.ListView?>
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.layout.ColumnConstraints?>
 <?import javafx.scene.control.Label?>
@@ -13,26 +14,48 @@
 <?import javafx.scene.image.Image?>
 <?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.ScrollPane.ScrollBarPolicy?>
-
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.control.SplitPane?>
 <BorderPane fx:controller="javafxui.ArtGelController"
           	xmlns:fx="http://javafx.com/fxml"
     		prefHeight="200" prefWidth="320">
 
-    <!-- Add Header Label -->
-	<left>
-	</left>
-	<right>
-	</right>
 	<center>
-		<ScrollPane >
-			<content>
-				<StackPane fx:id="imagePanel">
-					<ImageView fx:id="imageContainer">    
-			  
-					</ImageView>
-				</StackPane>
-			</content>
-		</ScrollPane>
+		<SplitPane dividerPositions="0.2,0.8" focusTraversable="true">
+			<items>
+				<VBox spacing="10" alignment="CENTER">
+					<Label text="Ruler"/>
+					<ListView fx:id="listRuler"
+					prefWidth="210" prefHeight="720">    
+						  
+					</ListView>
+					<Button fx:id="rulerChangeButton" text="Change"
+					            prefWidth="100" prefHeight="40" defaultButton="True"
+					            onAction="#handleRulerChangeButtonAction">
+					</Button>
+				</VBox>
+				<ScrollPane >
+					<content>
+						<StackPane fx:id="imagePanel">
+							<ImageView fx:id="imageContainer">    
+					  
+							</ImageView>
+						</StackPane>
+					</content>
+				</ScrollPane>
+				<VBox spacing="10" alignment="CENTER">
+					<Label text="Wells"/>		
+					<ListView fx:id="listWells"
+					prefWidth="210" prefHeight="720">    
+						  
+					</ListView>
+					<Button fx:id="wellsChangeButton" text="Change"
+					            prefWidth="100" prefHeight="40" defaultButton="True"
+					            onAction="#handleWellsChangeButtonAction">
+					</Button>
+				</VBox>
+			</items>
+		</SplitPane>
 	</center>
 
     <!-- Add Buttons -->
@@ -48,7 +71,7 @@
 		    </Button>
 		    <Button fx:id="clusterButton" text="Cluster"
 		            prefWidth="100" prefHeight="40" defaultButton="true"
-		            onAction="#handleLoadButtonAction">
+		            onAction="#handleClusterButtonAction">
 		    </Button>
 		    <Button fx:id="saveButton" text="Save"
 		            prefWidth="100" prefHeight="40" defaultButton="true"
@@ -56,11 +79,15 @@
 		    </Button>
 		    <Button fx:id="addButton" text="Add"
 		            prefWidth="100" prefHeight="40" defaultButton="true"
-		            onAction="#handleLoadButtonAction">
+		            onAction="#handleAddButtonAction">
 		    </Button>
-		    <Button fx:id="delateButton" text="Delate"
+		    <Button fx:id="delateButton" text="Remove"
 		            prefWidth="100" prefHeight="40" defaultButton="true"
-		            onAction="#handleLoadButtonAction">
+		            onAction="#handleDeleteButtonAction">
+		    </Button>
+		    <Button fx:id="preprocessButton" text="Preprocess"
+		            prefWidth="100" prefHeight="40" defaultButton="true"
+		            onAction="#handlePreprocessButtonAction">
 		    </Button>
 		</HBox>
 	</bottom>

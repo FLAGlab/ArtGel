@@ -24,7 +24,7 @@ import java.util.List;
 
 public class DynamicDistribution {
 
-	private double[][] intensityMatrix;
+	private int[][] intensityMatrix;
 	private double defaultMeanBwd=0;
 	private double defaultVarBwd=100;
 	private double defaultMeanSig=255;
@@ -40,7 +40,7 @@ public class DynamicDistribution {
 	private double signalVar;
 	
 	
-	public DynamicDistribution(double [][] intensityMatrix){
+	public DynamicDistribution(int [][] intensityMatrix){
 		this.intensityMatrix =intensityMatrix;
 		
 		//First iteration
