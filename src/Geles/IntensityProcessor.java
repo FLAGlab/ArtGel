@@ -56,7 +56,8 @@ public class IntensityProcessor {
 	private BufferedImage image;
 	private int imageRows;
 	private int imageColumns;
-	private double  [] [] intensitiesMatrix;
+	private int  [] [] intensitiesMatrix;
+	private int  [] [] intensitiesMatrixCopy;
 	
 	// Grey intensity distributions
 	private NormalDistribution backgroundDistribution;
@@ -121,7 +122,9 @@ public class IntensityProcessor {
         System.out.println("Rows: "+imageRows+" Cols: "+imageColumns);
         
         //Calculate scores:Grey scales parameteres
-        intensitiesMatrix = new double [imageRows][imageColumns];
+        intensitiesMatrix = new int [imageRows][imageColumns];
+		intensitiesMatrixCopy = new int[intensitiesMatrix.length][intensitiesMatrix[0].length];
+
         for( int j = 0; j < imageColumns; j++ )
         {
         	for( int i = 0; i < imageRows; i++ )
@@ -138,10 +141,14 @@ public class IntensityProcessor {
         bands = new ArrayList<>();
 	}
 	
-	private double getGrayIntensity(Color c) {
-		double sum = c.getRed()+c.getGreen()+c.getBlue();
-		if(sum<0) System.out.println("RGB:"+c.getRed()+" "+c.getGreen()+" "+c.getBlue()+" sum: "+sum);
-		return sum/3;
+	private int getGrayIntensity(Color c) {
+		double I1 = 0.2989* c.getRed()+ 0.5870*c.getGreen()+ 0.1140*c.getBlue();
+//		double UV = ((c.getBlue()-Y)*0.565) + ((c.getRed()-Y)*0.713);
+//		double R = (0.2989* c.getRed()+ 0.5870*c.getRed()+ 0.1140*c.getRed())/3;
+//		double G = (0.2989* c.getGreen()+ 0.5870*c.getGreen()+ 0.1140*c.getGreen())/3;
+//		double B = (0.2989* c.getBlue()+ 0.5870*c.getBlue()+ 0.1140*c.getBlue())/3;
+//		double I1 = (UV + R + G + B)/4;
+		return (int) Math.round(I1);
 	}
 	
 	public void processImage() throws Exception {
@@ -150,6 +157,7 @@ public class IntensityProcessor {
 		bandLocationsMatrix = new boolean[imageRows][imageColumns];
 		for(int i=0;i<imageRows;i++) Arrays.fill(bandLocationsMatrix[i], false);
 		int correctionRounds = 1;
+		long time = System.currentTimeMillis();
 		for(int i=0;i<=correctionRounds;i++) {
 			// STEP 1: Predict distributions of background and signal combined in the image
 			predictIntensityDistributions();
@@ -166,18 +174,23 @@ public class IntensityProcessor {
 	    	// Perform corrections on the image based on the learned values
 	    	if(i<correctionRounds) correctImage();
 		}
-        
+        System.out.println(System.currentTimeMillis()-time);
+        time = System.currentTimeMillis();
     	// STEP 5: Identify bands
     	//predictBands(1, 0.8); //0.8 threshold
     	
     	//predictBands(2, 0.95);
     	
     	predictBands(0,imageColumns, typicalBandHeight, 3, 0.5);
+    	System.out.println(System.currentTimeMillis()-time);
+        time = System.currentTimeMillis();
     	
     	if(bands.size()==0) throw new Exception ("No bands were found");
     	
     	// STEP 6: Identify wells performing vertical clustering of bands
     	createWells();
+    	System.out.println(System.currentTimeMillis()-time);
+        time = System.currentTimeMillis();
     	
     	// STEP 7: Identify missing bands from registered alleles
     	discoverMissingBands(0.7);
@@ -186,18 +199,26 @@ public class IntensityProcessor {
     	for(Well well:wells) {
     		predictBands(well.getStartCol(), well.getStartCol()+well.getWellWidth(), Math.max(5, typicalBandHeight/2), 3, 0.5);
     	}
+    	System.out.println(System.currentTimeMillis()-time);
+        time = System.currentTimeMillis();
     	
     	// STEP 7: Identify missing bands from registered alleles
     	discoverMissingBands(0.6);
     	
     	// STEP 6: Identify wells performing vertical clustering of bands
     	createWells();
+    	System.out.println(System.currentTimeMillis()-time);
+        time = System.currentTimeMillis();
     	
     	// STEP 9: Cluster alleles and samples
     	clusterAlleles();
+    	System.out.println(System.currentTimeMillis()-time);
+        time = System.currentTimeMillis();
     	
     	// STEP 10: Cluster samples
     	clusterSamples();
+    	System.out.println(System.currentTimeMillis()-time);
+        time = System.currentTimeMillis();
     	
     	//Print for testing
     	System.out.println("");
@@ -220,7 +241,172 @@ public class IntensityProcessor {
         
         
 	}
+	
+	public void preprocessImage() throws Exception {
+		int max = 0;
+		for(int i=0; i<intensitiesMatrix.length; i++) {
+			for(int j=0; j<intensitiesMatrix[i].length; j++) {
+				intensitiesMatrixCopy[i][j]=intensitiesMatrix[i][j];
+				if ( max < intensitiesMatrix[i][j]) {
+					max = intensitiesMatrix[i][j];
+				}
+			}
+		}
+		System.out.println("max: " +  max);
 
+		erode();
+		dilate();
+		substract();
+	}
+	
+	public void erode() {
+		/**
+         * Dimension of the image img.
+         */
+        int width = intensitiesMatrix.length;
+        int height = intensitiesMatrix[0].length;
+        
+        //buff
+        int buff[];
+        
+        //output of erosion
+        int output[] = new int[width*height];
+        
+        //perform erosion
+        for(int y = 0; y < height; y++){
+            for(int x = 0; x < width; x++){
+                buff = new int[(2*(width/40) + 1)*(2*(width/40) + 1)];
+                int i = 0;
+                for(int ty = y - width/40; ty <= y + width/40; ty++){
+                   for(int tx = x - width/40; tx <= x + width/40; tx++){
+                       if(ty >= 0 && ty < height && tx >= 0 && tx < width){
+                           //pixel under the mask
+                           buff[i] = intensitiesMatrix[tx][ty];
+                           i++;
+                       }
+                   }
+                }
+                
+                //sort buff
+                java.util.Arrays.sort(buff);
+                
+                //save lowest value
+                output[x+y*width] = buff[buff.length -i];
+            }
+        }
+        
+        /**
+         * Save the erosion value in image img.
+         */
+        for(int y = 0; y < height; y++){
+            for(int x = 0; x < width; x++){
+                intensitiesMatrix[x][y] = output[x+y*width];
+            }
+        }
+	}
+	
+	public void dilate() {
+		/**
+         * Dimension of the image img.
+         */
+        int width = intensitiesMatrix.length;
+        int height = intensitiesMatrix[0].length;
+        double max = 0.0;
+        double min = 300.0;
+        
+        //buff
+        int buff[];
+        
+        //output of dilate
+        int output[] = new int[width*height];
+        
+        //perform dilate
+        for(int y = 0; y < height; y++){
+            for(int x = 0; x < width; x++){
+                buff = new int[(2*(width/40) + 1)*(2*(width/40) + 1)];
+                int i = 0;
+                for(int ty = y - width/40; ty <= y + width/40; ty++){
+                   for(int tx = x - width/40; tx <= x + width/40; tx++){
+                       if(ty >= 0 && ty < height && tx >= 0 && tx < width){
+                           //pixel under the mask
+                           buff[i] = intensitiesMatrix[tx][ty];
+                           i++;
+                       }
+                   }
+                }
+                
+                //sort buff
+                java.util.Arrays.sort(buff);
+                
+                //save lowest value
+                output[x+y*width] = buff[buff.length-1];
+                if (output[x+y*width]>max) {
+                	max = output[x+y*width];
+                }
+                
+                if (output[x+y*width]<min) {
+                	min = output[x+y*width];
+                }
+            }
+        }
+        
+        /**
+         * Save the dilate value in image img.
+         */
+        System.out.println(max+ " "+min);
+        for(int y = 0; y < height; y++){
+            for(int x = 0; x < width; x++){
+                intensitiesMatrix[x][y] = output[x+y*width];
+                double perc = Math.min((1 + min / max)/2, 0.7);
+                if (  intensitiesMatrix[x][y] > max * perc ) {
+                	intensitiesMatrix[x][y] = (int) (max / 2);
+                }
+            }
+        }
+	}
+	
+	public void substract() {
+		
+		int width = intensitiesMatrix.length;
+        int height = intensitiesMatrix[0].length;
+        int max = 0;
+		for(int y = 0; y < height; y++){
+            for(int x = 0; x < width; x++){
+                intensitiesMatrix[x][y] = intensitiesMatrixCopy[x][y] - intensitiesMatrix[x][y];
+                if (max < intensitiesMatrix[x][y]) {
+                	max = intensitiesMatrix[x][y];
+                }
+            }
+        }
+		System.err.println("max: " +  max);
+		rescaleIntensities(max);
+	}
+	
+public void rescaleIntensities(int max) {
+		
+		int width = intensitiesMatrix.length;
+        int height = intensitiesMatrix[0].length;
+        double maxD = (double) max;
+		for(int y = 0; y < height; y++){
+            for(int x = 0; x < width; x++){
+            	double intensity = (double) intensitiesMatrix[x][y];
+            	double val =  (intensity/maxD)*255.0;
+                intensitiesMatrix[x][y] = (int) val;
+                
+            }
+        }
+	}
+	
+	
+	
+	public void deprocessImage() throws Exception {
+		for(int i=0; i<intensitiesMatrix.length; i++) {
+			for(int j=0; j<intensitiesMatrix[i].length; j++) {
+				intensitiesMatrix[i][j]=intensitiesMatrixCopy[i][j];
+			}
+		}
+	}
+	
 	private void predictIntensityDistributions() {
 		// backgroundDistribution = new NormalDistribution(0,1600);
         // signalDistribution= new NormalDistribution(254,1600);
@@ -256,7 +442,7 @@ public class IntensityProcessor {
 	
 	
 	public void predictSignalHMM(HMM hmm) {
-		List<Double> observations = new ArrayList<>();
+		List<Integer> observations = new ArrayList<>();
 		binarySignalMatrix= new boolean[imageRows][imageColumns];
 		pixelBackgroundLogPosteriors = new Double[imageRows][imageColumns];
 		pixelSignalLogPosteriors = new Double[imageRows][imageColumns];
@@ -441,31 +627,34 @@ public class IntensityProcessor {
 		double averageValue = 0;
 		int numValues = 0;
 		Distribution distLogFold = new Distribution(0, 2000, 100);
-		for(int i=0; i<imageRows-bandHeight; i++){ //start loop along all signal matrix
-			for(int j=startColumn; j<endColumn-typicalBandWidth; j++){
+		int midBandHeight = bandHeight/2;
+		int midBandWidth = typicalBandWidth/2;
+		for(int i=midBandHeight; i<imageRows-midBandHeight; i++){ //start loop along all signal matrix
+			for(int j=startColumn+midBandWidth; j<endColumn-midBandWidth; j++){
+				if(!binarySignalMatrix[i][j]) continue;
 				if(method == 1) {
-					if(!binarySignalMatrix[i][j]) continue;
-					double proportion = calculateProportionSignalRegion (i,i+bandHeight,j,j+typicalBandWidth);
+					double proportion = calculateProportionSignalRegion (i-midBandHeight,i+midBandHeight,j-midBandWidth,j+midBandWidth);
 					pixels.add(new PixelWithRealValue(i, j, proportion));
 					averageValue+=proportion;
 					numValues++;
 				} else if (method == 2) {
-					double avgPostRegion = calculateProbabilityAverageSignalMixtureModel(i,i+bandHeight,j,j+typicalBandWidth);
+					double avgPostRegion = calculateProbabilityAverageSignalMixtureModel(i-midBandHeight,i+midBandHeight,j-midBandWidth,j+typicalBandWidth);
 					pixels.add(new PixelWithRealValue(i, j, avgPostRegion));
 					averageValue+=avgPostRegion;
 					numValues++;
 				} else if (method == 3) {
-					double proportion = calculateProportionSignalRegion (i,i+bandHeight,j,j+typicalBandWidth);
+					double proportion = calculateProportionSignalRegion (i-midBandHeight,i+midBandHeight,j-midBandWidth,j+midBandWidth);
 					if(proportion < threshold) continue;
-					double logCondChange = calculateLogFoldChangeMixtureModel (i,i+bandHeight,j,j+typicalBandWidth);
+					double logCondChange = calculateLogFoldChangeMixtureModel (i-midBandHeight,i+midBandHeight,j-midBandWidth,j+midBandWidth);
+//					double logCondChange = 2;
 					distLogFold.processDatapoint(logCondChange);
-					pixels.add(new PixelWithRealValue(i, j, logCondChange));
+					pixels.add(new PixelWithRealValue(i-midBandHeight, j-midBandWidth, logCondChange));
 					averageValue+=logCondChange;
 					numValues++;
 				} else if (method == 4) {
-					Double logPostRegion = calculateHMMLogPosteriorRegion (i,i+bandHeight,j,j+typicalBandWidth);
+					Double logPostRegion = calculateHMMLogPosteriorRegion (i-midBandHeight,i+midBandHeight,j-midBandWidth,j+midBandWidth);
 					if(logPostRegion==null) continue;
-					pixels.add(new PixelWithRealValue(i, j, LogMath.power10(logPostRegion)));
+					pixels.add(new PixelWithRealValue(i-midBandHeight, j-midBandWidth, LogMath.power10(logPostRegion)));
 					averageValue+=logPostRegion;
 					numValues++;
 				} 
@@ -519,7 +708,7 @@ public class IntensityProcessor {
 		Double logCondBkg = 0.0;
 		for(int i=startRow; i<endRow; i++){ //opens window
 			for(int j=startColumn; j<endColumn; j++) {
-				double intensity = intensitiesMatrix[i][j];
+				int intensity = intensitiesMatrix[i][j];
 				logCondSignal = LogMath.logProduct(logCondSignal, signalState.getEmission(intensity, 0));
 				logCondBkg = LogMath.logProduct(logCondBkg, backgroundState.getEmission(intensity, 0));
 			}
@@ -532,7 +721,7 @@ public class IntensityProcessor {
 	public double calculateProbabilityAverageSignalMixtureModel (int startRow, int endRow, int startColumn, int endColumn) {
 		DistributionState signalState = new DistributionState("", 0.5, signalDistribution);
 		DistributionState backgroundState = new DistributionState("", 0.5, backgroundDistribution);
-		double avgIntensity = 0;
+		int avgIntensity = 0;
 		int datapoints = 0;
 		for(int i=startRow; i<endRow; i++){ //opens window
 			for(int j=startColumn; j<endColumn; j++) {
@@ -700,13 +889,27 @@ public class IntensityProcessor {
 			alleleClusters.get(i).setMolecularWeight(molecularWeights.get(i));
 		}
 	}
+	
+	public BufferedImage getPreprocessedImage () {
+		BufferedImage answer = new BufferedImage(imageColumns, imageRows, BufferedImage.TYPE_INT_RGB);
+		for( int i = 0; i < imageRows; i++ )
+        {
+            for( int j = 0; j < imageColumns; j++ )
+            {
+            	int grayIntensity = intensitiesMatrix[i][j];
+                answer.setRGB( j, i, new Color(grayIntensity,grayIntensity,grayIntensity).getRGB() );
+            }
+        }
+        return answer;
+	} 
+	
 	public BufferedImage getModifiedImage () {
 		BufferedImage answer = new BufferedImage(imageColumns, imageRows, BufferedImage.TYPE_INT_RGB);
 		for( int i = 0; i < imageRows; i++ )
         {
             for( int j = 0; j < imageColumns; j++ )
             {
-            	int grayIntensity = (int)Math.round(intensitiesMatrix[i][j]);
+            	int grayIntensity = intensitiesMatrix[i][j];
                 answer.setRGB( j, i, new Color(grayIntensity,grayIntensity,grayIntensity).getRGB() );
             }
         }
@@ -781,7 +984,7 @@ public class IntensityProcessor {
 		return image;
 	}
 
-	public double [][] getIntensities() {
+	public int [][] getIntensities() {
 		return intensitiesMatrix;
 	}
 	public List<Well> getWells() {
